@@ -1,0 +1,373 @@
+import { useEffect, useState } from 'react'
+import {
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  Truck,
+  Phone,
+  Mail,
+  MapPin,
+  X
+} from 'lucide-react'
+import { supplierService } from '../services/supplierService'
+import { sparepartService } from '../services/sparepartService'
+import { authService } from '../services/authService'
+import { rbacService } from '../services/rbacService'
+import { toastService } from '../services/toastService'
+
+const emptyForm = {
+  kode: '',
+  nama: '',
+  alamat: '',
+  telepon: '',
+  email: '',
+  kontak: ''
+}
+
+function Supplier() {
+  const [suppliers, setSuppliers] = useState([])
+  const [search, setSearch] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm)
+  const [error, setError] = useState('')
+  const [sparepartCounts, setSparepartCounts] = useState({})
+  const [loading, setLoading] = useState(true)
+
+  const currentUser = authService.getCurrentUser()
+  const canCreate = rbacService.canCreateSparepart(currentUser?.role)
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [suppliersData, sparepartsData] = await Promise.all([
+        supplierService.getAll(),
+        sparepartService.getAll()
+      ])
+
+      const stats = supplierService.getStats(suppliersData || [], sparepartsData || [])
+      setSuppliers(stats)
+
+      const counts = {}
+      ;(sparepartsData || []).forEach(sp => {
+        const supplierId = Number(sp.supplierId ?? sp.supplier_id)
+        counts[supplierId] = (counts[supplierId] || 0) + 1
+      })
+      setSparepartCounts(counts)
+    } catch (error) {
+      console.error('Failed to load supplier data:', error)
+      toastService.error('Gagal memuat data supplier')
+      setSuppliers([])
+      setSparepartCounts({})
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const filteredSuppliers = search
+    ? supplierService.search(search, suppliers)
+    : suppliers
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+
+    if (!form.nama) {
+      setError('Nama supplier wajib diisi')
+      return
+    }
+    if (!form.telepon) {
+      setError('Telepon wajib diisi')
+      return
+    }
+
+    const data = { ...form }
+
+    try {
+      if (editingId) {
+        await supplierService.update(editingId, data)
+        toastService.success(`Supplier "${form.nama}" berhasil diubah`)
+      } else {
+        await supplierService.create(data)
+        toastService.success(`Supplier "${form.nama}" berhasil ditambahkan`)
+      }
+
+      setShowModal(false)
+      setForm(emptyForm)
+      setEditingId(null)
+      loadData()
+    } catch (err) {
+      setError(err.message)
+      toastService.error(err.message)
+    }
+  }
+
+  const handleEdit = (s) => {
+    setEditingId(s.id)
+    setForm({
+      kode: s.kode,
+      nama: s.nama,
+      alamat: s.alamat || '',
+      telepon: s.telepon,
+      email: s.email || '',
+      kontak: s.kontak || ''
+    })
+    setShowModal(true)
+  }
+
+  const handleDelete = async (s) => {
+    if (sparepartCounts[s.id] > 0) {
+      toastService.warning(`Tidak dapat menghapus supplier "${s.nama}" karena masih memiliki ${sparepartCounts[s.id]} sparepart terkait.`)
+      return
+    }
+    if (confirm(`Hapus supplier "${s.nama}"?`)) {
+      try {
+        await supplierService.delete(s.id)
+        toastService.success(`Supplier "${s.nama}" berhasil dihapus`)
+        loadData()
+      } catch (err) {
+        toastService.error(err.message)
+      }
+    }
+  }
+
+  const handleAdd = () => {
+    setEditingId(null)
+    setForm(emptyForm)
+    setError('')
+    setShowModal(true)
+  }
+
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+  if (loading) {
+    return <div className="text-center py-20 text-gray-500">Memuat data...</div>
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Manajemen Supplier</h1>
+          <p className="text-gray-500 mt-1">Kelola data supplier sparepart</p>
+        </div>
+        {canCreate && (
+          <button
+            onClick={handleAdd}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Tambah Supplier
+          </button>
+        )}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Cari berdasarkan nama, kode, kontak, atau email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Grid Supplier */}
+      {filteredSuppliers.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Tidak Ada Supplier</h2>
+          <p className="text-gray-500">Tambahkan supplier untuk mengelola pemasok sparepart.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSuppliers.map((s) => (
+            <div key={s.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Truck className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800">{s.nama}</h3>
+                    <p className="text-xs text-gray-500">{s.kode}</p>
+                  </div>
+                </div>
+                {canCreate && (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEdit(s)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(s)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Hapus"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 text-sm">
+                {s.kontak && (
+                  <p className="flex items-center gap-2 text-gray-600">
+                    <Truck className="w-4 h-4 text-gray-400" />
+                    {s.kontak}
+                  </p>
+                )}
+                {s.telepon && (
+                  <p className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    {s.telepon}
+                  </p>
+                )}
+                {s.email && (
+                  <p className="flex items-center gap-2 text-gray-600">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    {s.email}
+                  </p>
+                )}
+                {s.alamat && (
+                  <p className="flex items-start gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    {s.alamat}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Sparepart Terkait</span>
+                  <span className="text-sm font-semibold text-blue-600">
+                    {sparepartCounts[s.id] || 0} item
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">
+                {editingId ? 'Edit Supplier' : 'Tambah Supplier'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kode Supplier</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.kode}
+                  onChange={(e) => setForm({ ...form, kode: e.target.value })}
+                  placeholder="Otomatis jika kosong"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Perusahaan *</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.nama}
+                  onChange={(e) => setForm({ ...form, nama: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Kontak</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.kontak}
+                  onChange={(e) => setForm({ ...form, kontak: e.target.value })}
+                  placeholder="Nama person yang dihubungi"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telepon *</label>
+                  <input
+                    type="text"
+                    className={inputClass}
+                    value={form.telepon}
+                    onChange={(e) => setForm({ ...form, telepon: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    className={inputClass}
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
+                <textarea
+                  className={inputClass}
+                  rows="3"
+                  value={form.alamat}
+                  onChange={(e) => setForm({ ...form, alamat: e.target.value })}
+                  placeholder="Alamat lengkap supplier"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {editingId ? 'Simpan Perubahan' : 'Tambah Supplier'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default Supplier
