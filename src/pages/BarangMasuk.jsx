@@ -146,7 +146,7 @@ function BarangMasuk() {
     link.click()
   }
 
-  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
 
   if (loading) {
     return <LoadingScreen message="Memuat data barang masuk..." />
@@ -170,7 +170,7 @@ function BarangMasuk() {
           {canCreate && (
             <button
               onClick={() => setShowForm(!showForm)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
             >
               <ArrowDownToLine className="w-5 h-5" />
               Catat Barang Masuk
@@ -207,7 +207,7 @@ function BarangMasuk() {
                   placeholder="Cari sparepart..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
               </div>
               <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
@@ -216,7 +216,7 @@ function BarangMasuk() {
                     key={sp.id}
                     onClick={() => handleSelectSparepart(sp)}
                     className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                      selectedSparepart?.id === sp.id ? 'bg-blue-50' : ''
+                      selectedSparepart?.id === sp.id ? 'bg-brand-50 border-l-4 border-brand-500' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -237,9 +237,9 @@ function BarangMasuk() {
             {/* Form Detail */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {selectedSparepart && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm font-medium text-blue-800">Sparepart Terpilih:</p>
-                  <p className="text-sm text-blue-700">{selectedSparepart.nama} ({selectedSparepart.kode})</p>
+                <div className="bg-brand-50 border border-brand-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-brand-800">Sparepart Terpilih:</p>
+                  <p className="text-sm text-brand-700">{selectedSparepart.nama} ({selectedSparepart.kode})</p>
                 </div>
               )}
 

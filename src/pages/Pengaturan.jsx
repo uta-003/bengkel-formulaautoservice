@@ -145,7 +145,7 @@ function Pengaturan() {
     }
   }
 
-  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
 
   return (
     <div className="space-y-6">
@@ -168,7 +168,7 @@ function Pengaturan() {
               setError('')
               setShowModal(true)
             }}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25 text-sm"
           >
             <Plus className="w-4 h-4" />
             Tambah Pengguna
@@ -193,7 +193,7 @@ function Pengaturan() {
                   <td className="px-4 py-3 text-sm text-gray-600">{user.email || '-'}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                      user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-brand-50 text-brand-700 border border-brand-100'
                     }`}>
                       <Shield className="w-3 h-3" />
                       {user.role}
@@ -203,7 +203,7 @@ function Pengaturan() {
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => handleEdit(user)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                         title="Edit"
                       >
                         <Pencil className="w-4 h-4" />
@@ -370,7 +370,7 @@ function Pengaturan() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
                 >
                   {editingId ? 'Simpan Perubahan' : 'Tambah Pengguna'}
                 </button>

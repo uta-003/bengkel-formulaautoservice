@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wrench, Lock, User, AlertTriangle } from 'lucide-react'
+import { Car, Lock, User, AlertTriangle, Loader2, Gauge } from 'lucide-react'
 import { authService } from '../services/authService'
 import { toastService } from '../services/toastService'
 
@@ -33,15 +33,24 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#a70000] via-[#d60000] to-[#660000] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative circles */}
+      <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative">
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-black/20 p-8 sm:p-10">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Wrench className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-600/40">
+              <Car className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800">Unit Check</h1>
-            <p className="text-gray-500 mt-1">Sistem Manajemen Sparepart</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400">
+              Formula Auto Service
+            </h1>
+            <p className="text-gray-500 mt-2 flex items-center justify-center gap-1.5 text-sm">
+              <Gauge className="w-4 h-4 text-brand-500" />
+              Sistem Manajemen Sparepart & Service
+            </p>
           </div>
 
           {error && (
@@ -60,7 +69,7 @@ function Login() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   placeholder="Masukkan username"
                   required
                 />
@@ -75,7 +84,7 @@ function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   placeholder="Masukkan password"
                   required
                 />
@@ -85,15 +94,25 @@ function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed font-semibold inline-flex items-center justify-center gap-2 shadow-md shadow-brand-500/30"
             >
-              {loading ? 'Memproses...' : 'Masuk'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                'Masuk'
+              )}
             </button>
           </form>
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-500 font-medium mb-1">Akun default:</p>
-            <p className="text-xs text-gray-400">Hubungi administrator untuk mendapatkan akun.</p>
+          <div className="mt-6 p-4 bg-brand-50 border border-brand-100 rounded-lg">
+            <p className="text-xs text-brand-700 font-semibold mb-1 flex items-center gap-1.5">
+              <Car className="w-3.5 h-3.5" />
+              Akun default:
+            </p>
+            <p className="text-xs text-brand-600/80">Hubungi administrator untuk mendapatkan akun.</p>
           </div>
         </div>
       </div>

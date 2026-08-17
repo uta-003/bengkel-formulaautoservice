@@ -135,7 +135,7 @@ function BarcodeScanner() {
                   onChange={(e) => setBarcodeInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Scan barcode atau ketik manual..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-lg"
                   autoFocus={isScanning}
                 />
               </div>
@@ -148,7 +148,7 @@ function BarcodeScanner() {
 
             <button
               type="submit"
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
             >
               <Search className="w-5 h-5" />
               Cari Sparepart
@@ -181,7 +181,7 @@ function BarcodeScanner() {
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-                    <Package className="w-6 h-6 text-blue-600" />
+                    <Package className="w-6 h-6 text-brand-600" />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800">{result.nama}</p>

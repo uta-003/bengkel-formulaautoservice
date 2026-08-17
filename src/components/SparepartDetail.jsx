@@ -62,8 +62,8 @@ function SparepartDetail({ sparepartId, onClose }) {
           {/* Info Utama */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Package className="w-8 h-8 text-blue-600" />
+              <div className="w-16 h-16 bg-brand-50 rounded-xl flex items-center justify-center border border-brand-100">
+                <Package className="w-8 h-8 text-brand-600" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-800">{sparepart.nama}</h3>

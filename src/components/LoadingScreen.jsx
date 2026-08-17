@@ -1,91 +1,139 @@
-// Komponen Loading Screen dengan animasi bengkel
-export function LoadingScreen({ message = 'Memuat data...' }) {
+import { Car, Settings, Gauge } from 'lucide-react'
+
+// Komponen Loading Screen modern dengan tema Formula Auto Service
+export function LoadingScreen({ message = 'Memuat data...', compact = false }) {
   return (
-    <div className="flex flex-col items-center justify-center py-24">
-      {/* Ilustrasi Bengkel SVG */}
-      <div className="relative w-40 h-40">
-        {/* Gedung bengkel */}
-        <svg viewBox="0 0 120 120" className="w-full h-full">
-          {/* Atap */}
-          <polygon points="60,15 10,45 110,45" fill="#1e3a5f" className="animate-pulse" />
-          {/* Dinding */}
-          <rect x="20" y="45" width="80" height="55" fill="#f0f4f8" stroke="#cbd5e1" strokeWidth="2" rx="4" />
-          {/* Pintu garasi */}
-          <rect x="35" y="60" width="50" height="40" rx="4" fill="#1e293b" />
-          {/* Jalur garasi */}
-          <rect x="45" y="55" width="30" height="5" rx="2" fill="#94a3b8" />
-          {/* Lampu atas */}
-          <circle cx="60" cy="25" r="4" fill="#fbbf24">
-            <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
-          </circle>
-
-          {/* Mobil di dalam garasi */}
-          <g>
-            <animateTransform attributeName="transform" type="translate" values="0,0; 0,2; 0,0" dur="1s" repeatCount="indefinite" />
-            {/* Body mobil */}
-            <rect x="42" y="72" width="36" height="12" rx="4" fill="#3b82f6" />
-            <rect x="48" y="67" width="24" height="8" rx="3" fill="#3b82f6" />
-            {/* Kaca */}
-            <rect x="52" y="69" width="8" height="4" rx="1" fill="#93c5fd" />
-            <rect x="62" y="69" width="8" height="4" rx="1" fill="#93c5fd" />
-            {/* Ban */}
-            <circle cx="50" cy="85" r="5" fill="#1e293b" />
-            <circle cx="70" cy="85" r="5" fill="#1e293b" />
-          </g>
-
-          {/* Toolbox / Kunci */}
-          <g>
-            <animateTransform attributeName="transform" type="rotate" values="0 60 90; 360 60 90" dur="2s" repeatCount="indefinite" />
-            {/* Kunci pas */}
-            <path d="M 62,86 L 68,80" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
-            <circle cx="69" cy="79" r="4" fill="none" stroke="#f59e0b" strokeWidth="2" />
-            <rect x="58" y="86" width="5" height="8" rx="1" fill="#f59e0b" />
-          </g>
-        </svg>
-
-        {/* Loading spinner overlay */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-        </div>
+    <div className="relative w-full py-16 sm:py-24 px-4 flex items-center justify-center overflow-hidden">
+      {/* Background gradient blobs */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/4 -left-16 w-48 h-48 sm:w-72 sm:h-72 bg-brand-200/40 rounded-full blur-3xl animate-blob" />
+        <div className="absolute bottom-1/4 -right-16 w-48 h-48 sm:w-72 sm:h-72 bg-brand-400/20 rounded-full blur-3xl animate-blob" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 sm:w-56 sm:h-56 bg-brand-300/20 rounded-full blur-3xl animate-blob" style={{ animationDelay: '4s' }} />
       </div>
 
-      {/* Teks loading */}
-      <p className="mt-6 text-lg font-semibold text-gray-700">{message}</p>
-      <div className="mt-3 flex items-center gap-2">
-        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+      {/* Glassmorphism card */}
+      <div className={`relative z-10 ${compact ? 'max-w-xs' : 'max-w-sm'} w-full mx-auto`}>
+        <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl shadow-brand-500/10 border border-white/60 dark:border-gray-700/60 p-6 sm:p-10 text-center">
+          {/* Animated logo / icon */}
+          <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto">
+            {/* Spinning gradient ring */}
+            <div className="absolute inset-0 rounded-full animate-spin-slow">
+              <div className="absolute inset-0 rounded-full border-4 sm:border-[5px] border-transparent border-t-brand-600 border-r-brand-400 border-b-brand-700 border-l-brand-300" />
+            </div>
+
+            {/* Inner glow ring */}
+            <div className="absolute inset-2 rounded-full bg-gradient-to-br from-brand-500/10 to-brand-700/10 animate-pulse-slow" />
+
+            {/* Center icon */}
+            <div className="absolute inset-5 sm:inset-6 flex items-center justify-center">
+              <div className="relative">
+                <Car className="w-10 h-10 sm:w-14 sm:h-14 text-brand-600 animate-float" strokeWidth={1.5} />
+                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2">
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-brand-400 animate-spin-slow" strokeWidth={2} />
+                </div>
+              </div>
+            </div>
+
+            {/* Orbit dots */}
+            <div className="absolute -inset-2 sm:-inset-3">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-brand-500 rounded-full animate-orbit" />
+              <div className="absolute bottom-1 left-1/4 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-600 rounded-full animate-orbit" style={{ animationDelay: '0.5s' }} />
+              <div className="absolute bottom-2 right-1/4 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-400 rounded-full animate-orbit" style={{ animationDelay: '1s' }} />
+            </div>
+          </div>
+
+          {/* Message */}
+          <div className="mt-6 sm:mt-8 space-y-4">
+            <p className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 via-brand-500 to-brand-600 animate-shimmer bg-[length:200%_auto]">
+              {message}
+            </p>
+
+            {/* Shimmer progress bar */}
+            <div className="relative h-1.5 sm:h-2 bg-gray-200/80 dark:bg-gray-700/80 rounded-full overflow-hidden">
+              <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300 rounded-full animate-progress" />
+            </div>
+
+            {/* Loading dots */}
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-600 rounded-full animate-bounce-soft" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-500 rounded-full animate-bounce-soft" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-300 rounded-full animate-bounce-soft" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-// Versi full-screen untuk initial load
-export function FullScreenLoader({ message = 'Memuat aplikasi...' }) {
+// Versi full-screen modern untuk initial load
+export function FullScreenLoader({ message = 'Menyiapkan aplikasi...' }) {
   return (
-    <div className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-sm flex items-center justify-center">
-      <div className="text-center">
-        <svg className="mx-auto" viewBox="0 0 120 120" width="120" height="120">
-          {/* Logo ring */}
-          <circle cx="60" cy="60" r="55" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray="8 6">
-            <animateTransform attributeName="transform" type="rotate" values="0 60 60; 360 60 60" dur="2s" repeatCount="indefinite" />
-          </circle>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden">
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 bg-gradient-animate bg-[length:400%_400%]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(167,0,0,0.15),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,82,82,0.15),transparent_50%)]" />
+      </div>
 
-          {/* Logo Unit Check */}
-          <rect x="25" y="45" width="70" height="30" rx="6" fill="#3b82f6" />
-          <rect x="35" y="35" width="50" height="20" rx="4" fill="#2563eb" />
-          <text x="60" y="64" textAnchor="middle" fontSize="14" fontWeight="bold" fill="white" fontFamily="sans-serif">UNIT CHECK</text>
+      {/* Floating particles */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[20%] left-[15%] w-2 h-2 sm:w-3 sm:h-3 bg-brand-500/50 rounded-full animate-float" />
+        <div className="absolute top-[30%] right-[20%] w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-400/50 rounded-full animate-float" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-[25%] left-[25%] w-3 h-3 sm:w-4 sm:h-4 bg-brand-300/40 rounded-full animate-float" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-[30%] right-[15%] w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-700/50 rounded-full animate-float" style={{ animationDelay: '3s' }} />
+        <div className="absolute top-[55%] left-[10%] w-2 h-2 sm:w-2.5 sm:h-2.5 bg-brand-400/40 rounded-full animate-float" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute top-[60%] right-[10%] w-2 h-2 sm:w-3 sm:h-3 bg-brand-600/40 rounded-full animate-float" style={{ animationDelay: '2.5s' }} />
+      </div>
 
-          {/* Wrench */}
-          <g transform="translate(60 90)">
-            <animateTransform attributeName="transform" type="translate" values="60 90; 60 86; 60 90" dur="1s" repeatCount="indefinite" />
-            <path d="M-6 0 L-6 -10 Q-6 -14 -2 -14 L7 -14 Q10 -14 10 -10 L10 -7 Q10 -4 7 -4 L-3 -4" fill="none" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" />
-          </g>
-        </svg>
+      {/* Glassmorphism card */}
+      <div className="relative z-10 max-w-xs sm:max-w-md w-full mx-4">
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 dark:border-gray-700/60 p-8 sm:p-12 text-center">
+          {/* Logo */}
+          <div className="relative w-20 h-20 sm:w-28 sm:h-28 mx-auto">
+            {/* Outer ring */}
+            <div className="absolute inset-0 rounded-full animate-spin-slow">
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-brand-600 border-r-brand-400 border-b-brand-300 border-l-brand-700" />
+            </div>
+            <div className="absolute inset-1.5 rounded-full border-2 border-transparent border-t-brand-400/60 border-b-brand-600/60 animate-spin-slow-reverse" />
 
-        <p className="mt-4 text-lg font-semibold text-gray-700">{message}</p>
-        <div className="mt-2 h-1.5 w-40 bg-gray-200 rounded-full mx-auto overflow-hidden">
-          <div className="h-full bg-blue-500 rounded-full animate-loading-bar" />
+            {/* Logo Formula Auto */}
+            <div className="absolute inset-4 flex flex-col items-center justify-center bg-gradient-to-br from-brand-600 to-brand-800 rounded-2xl shadow-lg shadow-brand-700/30">
+              <span className="text-[10px] sm:text-xs font-black tracking-widest text-white">FORMULA</span>
+              <span className="text-[10px] sm:text-xs font-black tracking-widest text-brand-200">AUTO</span>
+              <Gauge className="w-4 h-4 sm:w-6 sm:h-6 text-white absolute -bottom-2 right-1 sm:-bottom-2.5 sm:right-1.5 animate-pulse-slow" strokeWidth={2.5} />
+            </div>
+          </div>
+
+          {/* Text */}
+          <h1 className="mt-6 sm:mt-8 text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-700 via-brand-500 to-brand-700 animate-shimmer bg-[length:200%_auto]">
+              Formula Auto Service
+            </span>
+          </h1>
+          <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300">{message}</p>
+
+          {/* Progress bar */}
+          <div className="mt-6 sm:mt-8">
+            <div className="flex items-center justify-between mb-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <Car className="w-3.5 h-3.5 text-brand-500" />
+                Loading
+              </span>
+              <span className="font-mono animate-pulse-slow">...</span>
+            </div>
+            <div className="relative h-2 sm:h-2.5 bg-gray-200/70 dark:bg-gray-700/70 rounded-full overflow-hidden">
+              <div className="absolute inset-y-0 left-0 w-2/3 bg-gradient-to-r from-brand-600 via-brand-500 to-brand-400 rounded-full animate-loading-bar-modern" />
+              {/* Shimmer overlay */}
+              <div className="absolute inset-0 animate-shimmer-sweep bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+            </div>
+          </div>
+
+          {/* Status text */}
+          <div className="mt-6 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-brand-500 rounded-full animate-ping-slow" />
+            <span>Mohon tunggu sebentar</span>
+          </div>
         </div>
       </div>
     </div>

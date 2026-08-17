@@ -13,6 +13,7 @@ import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
 import { toastService } from '../services/toastService'
 import { formatRupiah } from '../utils/format'
+import { LoadingScreen } from '../components/LoadingScreen'
 
 function Laporan() {
   const [stats, setStats] = useState(null)
@@ -55,7 +56,7 @@ function Laporan() {
   }, [year])
 
   if (loading || !stats || !transStats) {
-    return <div className="text-center py-20 text-gray-500">Memuat data...</div>
+    return <LoadingScreen message="Memuat laporan & analisis..." />
   }
 
   const maxMonthlyValue = Math.max(...monthlyReport.map(m => Math.max(m.masuk, m.keluar)), 1)
@@ -75,7 +76,7 @@ function Laporan() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
           >
             {[2024, 2025, 2026, 2027].map(y => (
               <option key={y} value={y}>{y}</option>
@@ -83,7 +84,7 @@ function Laporan() {
           </select>
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
           >
             <Printer className="w-4 h-4" />
             Cetak Laporan
@@ -111,8 +112,8 @@ function Laporan() {
               <p className="text-sm text-gray-500">Total Modal</p>
               <p className="text-xl font-bold text-gray-800 mt-1">{formatRupiah(stats.totalModal)}</p>
             </div>
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center border border-brand-100">
+              <Package className="w-5 h-5 text-brand-600" />
             </div>
           </div>
         </div>
@@ -196,7 +197,7 @@ function Laporan() {
               {topSpareparts.map((sp, index) => (
                 <div key={sp.sparepartId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
+                    <span className="w-8 h-8 bg-brand-50 text-brand-600 border border-brand-100 rounded-full flex items-center justify-center font-bold text-sm">
                       {index + 1}
                     </span>
                     <div>

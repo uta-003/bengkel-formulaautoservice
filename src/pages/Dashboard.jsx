@@ -9,7 +9,9 @@ import {
   TrendingUp,
   Wallet,
   Boxes,
-  PieChart
+  PieChart,
+  Gauge,
+  ScanBarcode
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
@@ -76,65 +78,144 @@ function Dashboard() {
       title: 'Total Sparepart',
       value: stats.totalItems,
       icon: Package,
-      color: 'bg-blue-500',
+      color: 'bg-gradient-to-br from-brand-500 to-brand-700',
       link: '/sparepart'
     },
     {
       title: 'Total Stok',
       value: stats.totalStok,
       icon: Boxes,
-      color: 'bg-green-500',
+      color: 'bg-gradient-to-br from-brand-400 to-brand-600',
       link: '/sparepart'
     },
     {
       title: 'Nilai Stok (Jual)',
       value: formatRupiah(stats.totalNilai),
       icon: Wallet,
-      color: 'bg-purple-500',
+      color: 'bg-gradient-to-br from-brand-600 to-brand-800',
       link: '/laporan'
     },
     {
       title: 'Low Stock Alert',
       value: stats.lowStockCount,
       icon: AlertTriangle,
-      color: 'bg-red-500',
+      color: 'bg-gradient-to-br from-[#ff5252] to-[#a70000]',
       link: '/low-stock'
     },
     {
       title: 'Total Supplier',
       value: supplierCount,
       icon: Truck,
-      color: 'bg-orange-500',
+      color: 'bg-gradient-to-br from-brand-300 to-brand-500',
       link: '/supplier'
     },
     {
       title: 'Transaksi Masuk',
       value: formatRupiah(transStats.totalMasuk),
       icon: ArrowDownToLine,
-      color: 'bg-cyan-500',
+      color: 'bg-gradient-to-br from-brand-500 to-brand-300',
       link: '/barang-masuk'
     },
     {
       title: 'Transaksi Keluar',
       value: formatRupiah(transStats.totalKeluar),
       icon: ArrowUpFromLine,
-      color: 'bg-pink-500',
+      color: 'bg-gradient-to-br from-[#a70000] to-[#ff5252]',
       link: '/barang-keluar'
     },
     {
       title: 'Total Transaksi',
       value: transStats.totalTransaksi,
       icon: TrendingUp,
-      color: 'bg-indigo-500',
+      color: 'bg-gradient-to-br from-brand-700 to-brand-400',
       link: '/laporan'
     }
   ]
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Ringkasan kondisi inventori sparepart</p>
+      <div className="relative overflow-hidden bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 rounded-2xl p-6 sm:p-8 text-white shadow-lg shadow-brand-500/20">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Gauge className="w-6 h-6 text-brand-100" />
+              <span className="text-xs font-semibold text-brand-100 uppercase tracking-widest">Formula Auto Service</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
+            <p className="text-brand-100 mt-1">Ringkasan kondisi inventori sparepart</p>
+          </div>
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-3">
+            <div className="text-right">
+              <p className="text-xs text-brand-100">Status Sistem</p>
+              <p className="text-sm font-semibold flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse-slow" />
+                Online
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Link
+          to="/sparepart"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center group-hover:bg-brand-500 group-hover:text-white transition-colors">
+              <Package className="w-5 h-5 text-brand-600 group-hover:text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Kelola Sparepart</p>
+              <p className="text-xs text-gray-500">Tambah / ubah data</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/barang-masuk"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center group-hover:bg-brand-500 group-hover:text-white transition-colors">
+              <ArrowDownToLine className="w-5 h-5 text-brand-600 group-hover:text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Barang Masuk</p>
+              <p className="text-xs text-gray-500">Catat penerimaan</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/barang-keluar"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center group-hover:bg-brand-500 group-hover:text-white transition-colors">
+              <ArrowUpFromLine className="w-5 h-5 text-brand-600 group-hover:text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Barang Keluar</p>
+              <p className="text-xs text-gray-500">Catat pengeluaran</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/barcode"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center group-hover:bg-brand-500 group-hover:text-white transition-colors">
+              <ScanBarcode className="w-5 h-5 text-brand-600 group-hover:text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Scan Barcode</p>
+              <p className="text-xs text-gray-500">Cari sparepart</p>
+            </div>
+          </div>
+        </Link>
       </div>
 
       {/* Stat Cards */}
@@ -163,7 +244,7 @@ function Dashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800">Peringatan Stok Minimum</h2>
-            <Link to="/low-stock" className="text-sm text-blue-600 hover:text-blue-700">
+            <Link to="/low-stock" className="text-sm text-brand-600 hover:text-brand-700 font-medium">
               Lihat Semua
             </Link>
           </div>
@@ -191,7 +272,7 @@ function Dashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800">Transaksi Terbaru</h2>
-            <Link to="/laporan" className="text-sm text-blue-600 hover:text-blue-700">
+            <Link to="/laporan" className="text-sm text-brand-600 hover:text-brand-700 font-medium">
               Lihat Laporan
             </Link>
           </div>

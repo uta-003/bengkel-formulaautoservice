@@ -217,7 +217,7 @@ function Sparepart() {
     setShowModal(true)
   }
 
-  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
 
   if (loading) {
     return <LoadingScreen message="Memuat data sparepart..." />
@@ -255,7 +255,7 @@ function Sparepart() {
           {canCreate && (
             <button
               onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
             >
               <Plus className="w-5 h-5" />
               Tambah Sparepart
@@ -283,13 +283,13 @@ function Sparepart() {
             placeholder="Cari berdasarkan nama, kode, merk, barcode, atau supplier..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
           />
         </div>
         <select
           value={filterKategori}
           onChange={(e) => setFilterKategori(e.target.value)}
-          className="px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
         >
           <option value="">Semua Kategori</option>
           {categories.map(cat => (
@@ -364,7 +364,7 @@ function Sparepart() {
                         {canCreate && (
                           <button
                             onClick={() => handleEdit(sp)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Pencil className="w-4 h-4" />
@@ -409,7 +409,7 @@ function Sparepart() {
                 onClick={() => setCurrentPage(page)}
                 className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                   currentPage === page
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-md shadow-brand-500/25'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
@@ -597,7 +597,7 @@ function Sparepart() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
                 >
                   {editingId ? 'Simpan Perubahan' : 'Tambah Sparepart'}
                 </button>

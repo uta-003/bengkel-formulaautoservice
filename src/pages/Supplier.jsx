@@ -15,6 +15,7 @@ import { sparepartService } from '../services/sparepartService'
 import { authService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
+import { LoadingScreen } from '../components/LoadingScreen'
 
 const emptyForm = {
   kode: '',
@@ -143,10 +144,10 @@ function Supplier() {
     setShowModal(true)
   }
 
-  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
 
   if (loading) {
-    return <div className="text-center py-20 text-gray-500">Memuat data...</div>
+    return <LoadingScreen message="Memuat data supplier..." />
   }
 
   return (
@@ -159,7 +160,7 @@ function Supplier() {
         {canCreate && (
           <button
             onClick={handleAdd}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
           >
             <Plus className="w-5 h-5" />
             Tambah Supplier
@@ -175,7 +176,7 @@ function Supplier() {
           placeholder="Cari berdasarkan nama, kode, kontak, atau email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
         />
       </div>
 
@@ -192,8 +193,8 @@ function Supplier() {
             <div key={s.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Truck className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 bg-brand-50 rounded-lg flex items-center justify-center border border-brand-100">
+                    <Truck className="w-6 h-6 text-brand-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">{s.nama}</h3>
@@ -204,7 +205,7 @@ function Supplier() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => handleEdit(s)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                       title="Edit"
                     >
                       <Pencil className="w-4 h-4" />
@@ -250,7 +251,7 @@ function Supplier() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Sparepart Terkait</span>
-                  <span className="text-sm font-semibold text-blue-600">
+                  <span className="text-sm font-semibold text-brand-600">
                     {sparepartCounts[s.id] || 0} item
                   </span>
                 </div>
@@ -357,7 +358,7 @@ function Supplier() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
                 >
                   {editingId ? 'Simpan Perubahan' : 'Tambah Supplier'}
                 </button>
