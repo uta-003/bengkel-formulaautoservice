@@ -17,12 +17,17 @@ import {
   Car,
   Settings,
   LogOut,
-  Gauge
+  Gauge,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react'
 
 function Layout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true'
+  })
   const [lowStockCount, setLowStockCount] = useState(0)
   const currentUser = authService.getCurrentUser()
 
@@ -55,6 +60,14 @@ function Layout() {
     }
   }, [])
 
+  const handleToggleCollapse = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('sidebar_collapsed', String(next))
+      return next
+    })
+  }
+
   const handleLogout = () => {
     authService.logout()
     navigate('/login')
@@ -79,19 +92,22 @@ function Layout() {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#1a0505] via-[#200606] to-[#120303] text-white transform transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-[#1a0505] via-[#200606] to-[#120303] text-white transform transition-all duration-300 lg:translate-x-0 ${
+          sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'
+        } ${
+          sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Decorative gradient accents */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-brand-600/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-20 left-0 w-40 h-40 bg-brand-700/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-          <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center shadow-lg shadow-brand-600/30">
+        {/* Header sidebar */}
+        <div className={`relative flex items-center gap-3 px-6 py-5 border-b border-sidebar-border ${sidebarCollapsed ? 'lg:px-5 lg:justify-center' : ''}`}>
+          <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center shadow-lg shadow-brand-600/30 shrink-0">
             <Car className="w-6 h-6" />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className={`flex-1 min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
             <h1 className="font-bold text-lg leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-brand-200">
               Formula Auto
             </h1>
@@ -105,40 +121,67 @@ function Layout() {
           </button>
         </div>
 
-        <nav className="relative mt-4 px-3 space-y-1">
-          <p className="px-4 py-2 text-[10px] font-semibold text-brand-300/70 uppercase tracking-widest">Menu Utama</p>
+        {/* Toggle collapse desktop - di bawah header */}
+        <div className={`hidden lg:flex items-center justify-center py-2 border-b border-sidebar-border ${sidebarCollapsed ? 'px-2' : 'px-6'}`}>
+          <button
+            onClick={handleToggleCollapse}
+            title={sidebarCollapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-brand-300/80 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+          >
+            {sidebarCollapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+            <span className={sidebarCollapsed ? 'lg:hidden' : ''}>
+              {sidebarCollapsed ? '' : 'Ciutkan'}
+            </span>
+          </button>
+        </div>
+
+        <nav className={`relative mt-4 px-3 space-y-1 ${sidebarCollapsed ? 'lg:px-3' : ''}`}>
+          {!sidebarCollapsed && (
+            <p className="px-4 py-2 text-[10px] font-semibold text-brand-300/70 uppercase tracking-widest hidden lg:block">
+              Menu Utama
+            </p>
+          )}
           {menuItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               onClick={() => setSidebarOpen(false)}
+              title={sidebarCollapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                `relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all ${
+                  sidebarCollapsed ? 'lg:px-0 lg:justify-center' : 'px-4 py-2.5'
+                } ${
                   isActive
                     ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-md shadow-brand-600/25'
                     : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                }`
+                } py-2.5`
               }
             >
               <item.icon className="w-5 h-5 shrink-0" />
-              <span className="flex-1 truncate">{item.label}</span>
+              <span className={`flex-1 truncate ${sidebarCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
               {item.to === '/low-stock' && lowStockCount > 0 && (
-                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 bg-brand-500 text-white text-[10px] font-bold rounded-full shadow-md shadow-brand-500/40">
-                  {lowStockCount}
-                </span>
+                <>
+                  <span className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 bg-brand-500 text-white text-[10px] font-bold rounded-full shadow-md shadow-brand-500/40 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+                    {lowStockCount}
+                  </span>
+                  {sidebarCollapsed && (
+                    <span className="hidden lg:inline-flex absolute top-1 right-1 w-2.5 h-2.5 bg-brand-500 rounded-full ring-2 ring-[#200606]" />
+                  )}
+                </>
               )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border space-y-2 bg-gradient-to-r from-[#120303]/90 to-[#1a0505]/90 backdrop-blur-sm">
+        <div className={`absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border space-y-2 bg-gradient-to-r from-[#120303]/90 to-[#1a0505]/90 backdrop-blur-sm ${sidebarCollapsed ? 'lg:px-2 lg:flex lg:flex-col lg:items-center lg:space-y-2' : ''}`}>
           <button
             onClick={handleLogout}
-            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm text-brand-100 bg-white/10 hover:bg-white/20 backdrop-blur rounded-lg transition-all"
+            title={sidebarCollapsed ? 'Logout' : undefined}
+            className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm text-brand-100 bg-white/10 hover:bg-white/20 backdrop-blur rounded-lg transition-all ${sidebarCollapsed ? 'lg:w-11 lg:px-0' : ''}`}
           >
-            <LogOut className="w-4 h-4" />
-            Logout
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span className={sidebarCollapsed ? 'lg:hidden' : ''}>Logout</span>
           </button>
           <button
             onClick={() => {
@@ -147,7 +190,7 @@ function Layout() {
                 window.location.href = '/login'
               }
             }}
-            className="w-full text-xs text-brand-300/70 hover:text-brand-200 transition-colors"
+            className={`w-full text-xs text-brand-300/70 hover:text-brand-200 transition-colors ${sidebarCollapsed ? 'lg:hidden' : ''}`}
           >
             Reset Data Aplikasi
           </button>
@@ -163,7 +206,7 @@ function Layout() {
       )}
 
       {/* Main Content */}
-      <div className="lg:pl-64">
+      <div className={`transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
         {/* Header */}
         <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-brand-100 px-4 lg:px-8 py-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
@@ -172,6 +215,13 @@ function Layout() {
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="w-6 h-6" />
+            </button>
+            <button
+              className="hidden lg:flex text-gray-600 hover:text-brand-600 transition-colors"
+              onClick={handleToggleCollapse}
+              title={sidebarCollapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
+            >
+              {sidebarCollapsed ? <ChevronsRight className="w-6 h-6" /> : <ChevronsLeft className="w-6 h-6" />}
             </button>
             <div className="flex items-center gap-2">
               <div className="hidden lg:flex items-center gap-2">
