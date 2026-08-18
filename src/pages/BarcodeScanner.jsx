@@ -7,12 +7,17 @@ import {
   AlertTriangle,
   CheckCircle2,
   ArrowDownToLine,
-  ArrowUpFromLine
+  ArrowUpFromLine,
+  Camera,
+  CameraOff,
+  Loader2
 } from 'lucide-react'
+import { Html5Qrcode } from 'html5-qrcode'
 import { sparepartService } from '../services/sparepartService'
+import { scanHistoryService } from '../services/scanHistoryService'
 import { toastService } from '../services/toastService'
+import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
-import { LoadingScreen } from '../components/LoadingScreen'
 
 function BarcodeScanner() {
   const [barcodeInput, setBarcodeInput] = useState('')
@@ -20,24 +25,33 @@ function BarcodeScanner() {
   const [error, setError] = useState('')
   const [recentScans, setRecentScans] = useState([])
   const [isScanning, setIsScanning] = useState(false)
+  const [isCameraActive, setIsCameraActive] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [cameraLoading, setCameraLoading] = useState(false)
   const [allSpareparts, setAllSpareparts] = useState([])
-  const [loading, setLoading] = useState(true)
   const inputRef = useRef(null)
+  const scannerRef = useRef(null)
+  const html5QrCodeRef = useRef(null)
+  const lastScannedRef = useRef('')
+  const lastScanTimeRef = useRef(0)
+  const isCameraActiveRef = useRef(false)
 
   useEffect(() => {
     let isMounted = true
 
     const loadData = async () => {
       try {
-        const spareparts = await sparepartService.getAll()
+        const [spareparts, scanHistory] = await Promise.all([
+          sparepartService.getAll(),
+          scanHistoryService.getRecentScans(20)
+        ])
         if (isMounted) {
           setAllSpareparts(spareparts || [])
+          setRecentScans(scanHistory || [])
         }
       } catch (error) {
-        console.error('Failed to load spareparts:', error)
-        if (isMounted) toastService.error('Gagal memuat data sparepart')
-      } finally {
-        if (isMounted) setLoading(false)
+        console.error('Failed to load data:', error)
+        if (isMounted) toastService.error('Gagal memuat data')
       }
     }
 
@@ -54,6 +68,76 @@ function BarcodeScanner() {
     }
   }, [isScanning])
 
+  // Sync ref dengan state isCameraActive
+  useEffect(() => {
+    isCameraActiveRef.current = isCameraActive
+  }, [isCameraActive])
+
+  // Cleanup saat komponen unmount
+  useEffect(() => {
+    return () => {
+      stopCamera()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const processBarcode = async (barcode) => {
+    const cleanedBarcode = String(barcode).trim()
+    if (!cleanedBarcode) return
+
+    // Cegah double scan dalam 1.5 detik
+    const now = Date.now()
+    if (cleanedBarcode === lastScannedRef.current && now - lastScanTimeRef.current < 1500) {
+      return
+    }
+    lastScannedRef.current = cleanedBarcode
+    lastScanTimeRef.current = now
+
+    setError('')
+    setResult(null)
+
+    // Selalu cari dari data terbaru di database
+    let sparepartsList = allSpareparts
+    if (sparepartsList.length === 0) {
+      try {
+        sparepartsList = await sparepartService.getAll()
+        if (sparepartsList) setAllSpareparts(sparepartsList)
+      } catch (e) {
+        console.error('Failed to reload spareparts:', e)
+      }
+    }
+    const sparepart = sparepartService.findByBarcode(cleanedBarcode, sparepartsList)
+    if (!sparepart) {
+      setError(`Barcode "${cleanedBarcode}" tidak ditemukan di database`)
+      // Simpan riwayat scan NOT_FOUND ke Supabase
+      const newScan = {
+        barcode: cleanedBarcode,
+        status: 'NOT_FOUND',
+        sparepartId: null,
+        sparepartName: null,
+        scannedAt: new Date().toISOString()
+      }
+      setRecentScans(prev => [newScan, ...prev].slice(0, 20))
+      scanHistoryService.addScan(newScan)
+      soundService.error()
+      return
+    }
+
+    setResult(sparepart)
+    // Simpan riwayat scan FOUND ke Supabase
+    const newScan = {
+      barcode: cleanedBarcode,
+      status: 'FOUND',
+      sparepartId: sparepart.id,
+      sparepartName: sparepart.nama,
+      scannedAt: new Date().toISOString()
+    }
+    setRecentScans(prev => [newScan, ...prev].slice(0, 20))
+    scanHistoryService.addScan(newScan)
+    setBarcodeInput('')
+    soundService.scan()
+  }
+
   const handleScan = (e) => {
     e.preventDefault()
     setError('')
@@ -65,22 +149,7 @@ function BarcodeScanner() {
       return
     }
 
-    const sparepart = sparepartService.findByBarcode(barcode, allSpareparts)
-    if (!sparepart) {
-      setError(`Barcode "${barcode}" tidak ditemukan di database`)
-      setRecentScans(prev => [
-        { barcode, status: 'NOT_FOUND', timestamp: new Date().toISOString() },
-        ...prev
-      ].slice(0, 10))
-      return
-    }
-
-    setResult(sparepart)
-    setRecentScans(prev => [
-      { barcode, status: 'FOUND', sparepartId: sparepart.id, timestamp: new Date().toISOString() },
-      ...prev
-    ].slice(0, 10))
-    setBarcodeInput('')
+    processBarcode(barcode)
   }
 
   const handleKeyDown = (e) => {
@@ -90,17 +159,110 @@ function BarcodeScanner() {
     }
   }
 
-  const isLowStock = result && result.stok <= result.stokMinimum
+  const startCamera = async () => {
+    setCameraError('')
+    setCameraLoading(true)
 
-  if (loading) {
-    return <LoadingScreen message="Memuat data barcode..." />
+    try {
+      // Pastikan elemen scanner tersedia
+      if (!scannerRef.current) {
+        throw new Error('Elemen scanner tidak ditemukan')
+      }
+
+      // Bersihkan elemen jika sudah ada scan area sebelumnya
+      scannerRef.current.innerHTML = ''
+
+      const html5QrCode = new Html5Qrcode('barcode-scanner-area')
+      html5QrCodeRef.current = html5QrCode
+
+      const cameras = await Html5Qrcode.getCameras()
+      if (!cameras || cameras.length === 0) {
+        throw new Error('Tidak ada kamera yang terdeteksi')
+      }
+
+      // Pilih kamera belakang jika ada (biasanya index terakhir atau id dengan 'back')
+      const backCamera = cameras.find(c =>
+        c.label.toLowerCase().includes('back') ||
+        c.label.toLowerCase().includes('belakang') ||
+        c.label.toLowerCase().includes('environment')
+      ) || cameras[cameras.length - 1]
+
+      await html5QrCode.start(
+        backCamera.id,
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
+        },
+        (decodedText) => {
+          // Sukses scan
+          processBarcode(decodedText)
+        },
+        () => {
+          // Error scan (biasanya setiap frame tanpa barcode) - abaikan
+        }
+      )
+
+      setIsCameraActive(true)
+      isCameraActiveRef.current = true
+    } catch (err) {
+      console.error('Camera error:', err)
+      // Bersihkan jika ada yang sudah ter-set
+      if (html5QrCodeRef.current) {
+        try {
+          html5QrCodeRef.current.clear()
+        } catch {
+          // abaikan
+        }
+        html5QrCodeRef.current = null
+      }
+      isCameraActiveRef.current = false
+      setCameraError(
+        err.message === 'Tidak ada kamera yang terdeteksi'
+          ? 'Tidak ada kamera yang terdeteksi di perangkat ini'
+          : 'Gagal mengakses kamera. Pastikan izin kamera diberikan dan gunakan HTTPS atau localhost.'
+      )
+      soundService.error()
+    } finally {
+      setCameraLoading(false)
+    }
   }
+
+  const stopCamera = async () => {
+    if (html5QrCodeRef.current && isCameraActiveRef.current) {
+      try {
+        await html5QrCodeRef.current.stop()
+        html5QrCodeRef.current.clear()
+      } catch (err) {
+        console.warn('Error stopping camera:', err)
+      }
+      html5QrCodeRef.current = null
+      setIsCameraActive(false)
+      isCameraActiveRef.current = false
+
+      // Bersihkan area scanner
+      if (scannerRef.current) {
+        scannerRef.current.innerHTML = ''
+      }
+    }
+  }
+
+  const handleToggleCamera = async () => {
+    soundService.click()
+    if (isCameraActive) {
+      await stopCamera()
+    } else {
+      await startCamera()
+    }
+  }
+
+  const isLowStock = result && result.stok <= result.stokMinimum
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Barcode Scanner</h1>
-        <p className="text-gray-500 mt-1">Scan barcode sparepart untuk melihat informasi stok</p>
+        <p className="text-gray-500 mt-1">Scan barcode sparepart menggunakan kamera HP atau masukkan manual</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -108,17 +270,71 @@ function BarcodeScanner() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800">Scanner</h2>
-            <button
-              onClick={() => setIsScanning(!isScanning)}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                isScanning
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setIsScanning(!isScanning)
+                  soundService.click()
+                }}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isScanning
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <ScanBarcode className="w-4 h-4" />
+                {isScanning ? 'Keyboard Aktif' : 'Aktifkan Keyboard'}
+              </button>
+              <button
+                onClick={handleToggleCamera}
+                disabled={cameraLoading}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isCameraActive
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-brand-600 text-white hover:bg-brand-700'
+                }`}
+              >
+                {cameraLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isCameraActive ? (
+                  <CameraOff className="w-4 h-4" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+                {cameraLoading ? 'Memuat...' : isCameraActive ? 'Matikan Kamera' : 'Scan dengan Kamera'}
+              </button>
+            </div>
+          </div>
+
+          {/* Area Kamera */}
+          <div className="mb-4">
+            <div
+              id="barcode-scanner-area"
+              ref={scannerRef}
+              className={`rounded-lg overflow-hidden bg-black transition-all ${
+                isCameraActive ? 'block' : 'hidden'
               }`}
-            >
-              <ScanBarcode className="w-4 h-4" />
-              {isScanning ? 'Scanner Aktif' : 'Aktifkan Scanner'}
-            </button>
+            />
+            {cameraError && (
+              <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <CameraOff className="w-4 h-4 shrink-0" />
+                <div>
+                  <p className="font-medium">Kamera tidak dapat diakses</p>
+                  <p className="text-xs mt-1">{cameraError}</p>
+                </div>
+              </div>
+            )}
+            {!isCameraActive && !cameraError && (
+              <div className="mt-3 bg-gray-50 border border-dashed border-gray-300 rounded-lg p-4 text-center">
+                <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">
+                  Klik <span className="font-semibold text-brand-600">"Scan dengan Kamera"</span> untuk mengaktifkan kamera HP
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Arahkan kamera ke barcode sparepart untuk scan otomatis
+                </p>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleScan} className="space-y-4">
@@ -140,9 +356,11 @@ function BarcodeScanner() {
                 />
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                {isScanning
-                  ? 'Scanner aktif - arahkan scanner ke barcode sparepart'
-                  : 'Klik "Aktifkan Scanner" untuk mode scan otomatis'}
+                {isCameraActive
+                  ? 'Kamera aktif - arahkan kamera ke barcode sparepart'
+                  : isScanning
+                    ? 'Mode keyboard aktif - scan barcode menggunakan scanner USB'
+                    : 'Gunakan tombol kamera untuk scan otomatis dengan kamera HP'}
               </p>
             </div>
 
@@ -252,9 +470,12 @@ function BarcodeScanner() {
                     </div>
                     <div>
                       <p className="font-mono text-sm font-medium text-gray-800">{scan.barcode}</p>
+                      {scan.sparepartName && (
+                        <p className="text-xs text-gray-600">{scan.sparepartName}</p>
+                      )}
                       <p className="text-xs text-gray-500">
                         {scan.status === 'FOUND' ? 'Ditemukan' : 'Tidak ditemukan'} •{' '}
-                        {new Date(scan.timestamp).toLocaleTimeString('id-ID')}
+                        {new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}
                       </p>
                     </div>
                   </div>
@@ -267,6 +488,18 @@ function BarcodeScanner() {
               ))}
             </div>
           )}
+
+          {/* Panduan Penggunaan */}
+          <div className="mt-6 bg-brand-50 border border-brand-100 rounded-lg p-4">
+            <h3 className="font-semibold text-brand-800 text-sm mb-2">Panduan Scan dengan Kamera</h3>
+            <ul className="text-xs text-brand-700 space-y-1.5">
+              <li>• Klik tombol <span className="font-semibold">"Scan dengan Kamera"</span></li>
+              <li>• Izinkan akses kamera saat diminta browser</li>
+              <li>• Arahkan kamera ke barcode sparepart</li>
+              <li>• Scan akan terjadi otomatis saat barcode terdeteksi</li>
+              <li>• Gunakan <span className="font-semibold">HTTPS</span> atau <span className="font-semibold">localhost</span> untuk akses kamera</li>
+            </ul>
+          </div>
         </div>
       </div>
 

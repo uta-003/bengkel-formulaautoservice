@@ -1,57 +1,25 @@
-import { apiService } from './apiService'
 import { db } from './database'
 
 export const supplierService = {
+  // Gunakan Supabase sebagai database utama
   async getAll() {
-    try {
-      const response = await apiService.getSuppliers()
-      return response?.data || []
-    } catch (error) {
-      // Fallback ke localStorage ketika API tidak tersedia
-      console.warn('API tidak tersedia, menggunakan data lokal:', error.message)
-      return db.getAll('suppliers')
-    }
+    return db.getAll('suppliers')
   },
 
   async getById(id) {
-    try {
-      const response = await apiService.getSupplierById(id)
-      if (response?.data) return response.data
-      throw new Error('Data kosong')
-    } catch (error) {
-      console.warn('API getById gagal, fallback lokal:', error.message)
-      return db.getById('suppliers', id) || null
-    }
+    return db.getById('suppliers', id) || null
   },
 
   async create(data) {
-    try {
-      const response = await apiService.createSupplier(data)
-      return response?.data || null
-    } catch (error) {
-      console.warn('API create gagal, fallback lokal:', error.message)
-      return db.insert('suppliers', data)
-    }
+    return db.insert('suppliers', data)
   },
 
   async update(id, data) {
-    try {
-      const response = await apiService.updateSupplier(id, data)
-      if (response?.data) return response.data
-      throw new Error('Data kosong')
-    } catch (error) {
-      console.warn('API update gagal, fallback lokal:', error.message)
-      return db.update('suppliers', id, data)
-    }
+    return db.update('suppliers', id, data)
   },
 
   async delete(id) {
-    try {
-      await apiService.deleteSupplier(id)
-    } catch (error) {
-      console.warn('API delete gagal, fallback lokal:', error.message)
-      db.remove('suppliers', id)
-    }
+    await db.remove('suppliers', id)
     return true
   },
 

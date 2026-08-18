@@ -10,7 +10,8 @@ import {
   Download,
   Upload,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { supplierService } from '../services/supplierService'
@@ -19,7 +20,8 @@ import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
 import SparepartDetail from '../components/SparepartDetail'
 import { formatRupiah } from '../utils/format'
-import { LoadingScreen } from '../components/LoadingScreen'
+import { generateBarcode, generateKodeSparepart } from '../utils/barcode'
+import { soundService } from '../services/soundService'
 
 const emptyForm = {
   kode: '',
@@ -48,7 +50,6 @@ function Sparepart() {
   const [detailId, setDetailId] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [importResult, setImportResult] = useState('')
-  const [loading, setLoading] = useState(true)
   const fileInputRef = useRef(null)
   const itemsPerPage = 10
 
@@ -56,7 +57,6 @@ function Sparepart() {
   const canCreate = rbacService.canCreateSparepart(currentUser?.role)
 
   const loadData = async () => {
-    setLoading(true)
     try {
       const [sparepartsData, suppliersData] = await Promise.all([
         sparepartService.getAll(),
@@ -69,8 +69,6 @@ function Sparepart() {
       toastService.error('Gagal memuat data sparepart')
       setSpareparts([])
       setSuppliers([])
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -102,18 +100,20 @@ function Sparepart() {
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
-        const result = sparepartService.importFromCSV(event.target.result)
+        const result = await sparepartService.importFromCSV(event.target.result)
         setImportResult(`Berhasil import ${result.imported} data sparepart${result.errors.length > 0 ? `, ${result.errors.length} error` : ''}`)
         if (result.errors.length > 0) {
           console.warn('Import errors:', result.errors)
         }
         loadData()
         toastService.success(`Berhasil import ${result.imported} data sparepart`)
+        soundService.import()
       } catch (err) {
         setImportResult(`Error: ${err.message}`)
         toastService.error(err.message)
+        soundService.error()
       }
     }
     reader.readAsText(file)
@@ -128,13 +128,25 @@ function Sparepart() {
     link.href = URL.createObjectURL(blob)
     link.download = filename
     link.click()
+    soundService.export()
+  }
+
+  // Generate barcode otomatis berdasarkan ID sparepart
+  const generateBarcodeForForm = () => {
+    const existingBarcodes = new Set(spareparts.map(sp => sp.barcode).filter(Boolean))
+    let newBarcode
+    let counter = 0
+    do {
+      newBarcode = generateBarcode(spareparts.length + 1 + counter)
+      counter++
+    } while (existingBarcodes.has(newBarcode) && counter < 100)
+    return newBarcode
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
 
-    // Validasi
     if (!form.nama || !form.kategori || !form.merk) {
       setError('Nama, kategori, dan merk wajib diisi')
       return
@@ -165,9 +177,11 @@ function Sparepart() {
       if (editingId) {
         await sparepartService.update(editingId, data)
         toastService.success(`Sparepart "${form.nama}" berhasil diubah`)
+        soundService.edit()
       } else {
         await sparepartService.create(data)
         toastService.success(`Sparepart "${form.nama}" berhasil ditambahkan`)
+        soundService.add()
       }
       setShowModal(false)
       setForm(emptyForm)
@@ -176,6 +190,7 @@ function Sparepart() {
     } catch (err) {
       setError(err.message)
       toastService.error(err.message)
+      soundService.error()
     }
   }
 
@@ -203,25 +218,35 @@ function Sparepart() {
       try {
         await sparepartService.delete(sp.id)
         toastService.success(`Sparepart "${sp.nama}" berhasil dihapus`)
+        soundService.delete()
         loadData()
       } catch (err) {
         toastService.error(err.message)
+        soundService.error()
       }
     }
   }
 
   const handleAdd = () => {
     setEditingId(null)
-    setForm(emptyForm)
+    const nextId = spareparts.length + 1
+    setForm({
+      ...emptyForm,
+      kode: generateKodeSparepart(nextId),
+      barcode: generateBarcodeForForm()
+    })
     setError('')
     setShowModal(true)
+    soundService.click()
+  }
+
+  const handleRegenerateBarcode = () => {
+    const newBarcode = generateBarcodeForForm()
+    setForm({ ...form, barcode: newBarcode })
+    soundService.click()
   }
 
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-
-  if (loading) {
-    return <LoadingScreen message="Memuat data sparepart..." />
-  }
 
   return (
     <div className="space-y-6">
@@ -305,6 +330,7 @@ function Sparepart() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Kode</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Barcode</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama Sparepart</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Kategori</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Merk</th>
@@ -319,7 +345,7 @@ function Sparepart() {
             <tbody className="divide-y divide-gray-100">
               {filteredSpareparts.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                     Tidak ada data sparepart
                   </td>
                 </tr>
@@ -327,6 +353,11 @@ function Sparepart() {
                 paginatedSpareparts.map((sp) => (
                   <tr key={sp.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{sp.kode}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                        {sp.barcode || '-'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-gray-400" />
@@ -453,11 +484,13 @@ function Sparepart() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kode Sparepart</label>
                   <input
                     type="text"
-                    className={inputClass}
+                    className={`${inputClass} bg-gray-100 cursor-not-allowed`}
                     value={form.kode}
-                    onChange={(e) => setForm({ ...form, kode: e.target.value })}
-                    placeholder="Otomatis jika kosong"
+                    readOnly
+                    disabled
+                    placeholder="Otomatis"
                   />
+                  <p className="mt-1 text-xs text-gray-500">Kode sparepart otomatis (tidak bisa diubah)</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nama Sparepart *</label>
@@ -577,13 +610,29 @@ function Sparepart() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Barcode</label>
-                  <input
-                    type="text"
-                    className={inputClass}
-                    value={form.barcode}
-                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                    placeholder="Kode barcode sparepart"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className={inputClass}
+                      value={form.barcode}
+                      onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                      placeholder="Barcode otomatis ter-generate"
+                      readOnly={editingId ? false : true}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRegenerateBarcode}
+                      className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Generate ulang barcode"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {!editingId && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Barcode otomatis berdasarkan ID sparepart (EAN-13)
+                    </p>
+                  )}
                 </div>
               </div>
 

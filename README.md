@@ -43,7 +43,8 @@ Aplikasi web untuk mengelola inventori sparepart dengan fitur lengkap: manajemen
 - React Router 7
 - Lucide React (icons)
 - OXLint (linter)
-- localStorage sebagai database simulasi (dengan opsi integrasi API)
+- Supabase sebagai database utama (real-time REST API)
+- localStorage hanya untuk cache sementara (sidebar state, dll)
 
 ## 📦 Instalasi
 
@@ -66,12 +67,19 @@ npm run lint
 Buat file `.env.local`:
 
 ```env
+# API (opsional, untuk backend tambahan)
 VITE_API_URL=http://localhost:3000/api
+
+# Supabase (wajib untuk database)
+VITE_SUPABASE_URL=https://oapbpywsvgzegrhfhghn.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_2e3hma5Eo6DXz6_i034kDQ_rQl9lOhK
 ```
 
 | Variable | Deskripsi | Default |
 |----------|-----------|---------|
-| `VITE_API_URL` | URL backend API | `http://localhost:3000/api` |
+| `VITE_API_URL` | URL backend API (opsional) | `http://localhost:3000/api` |
+| `VITE_SUPABASE_URL` | URL project Supabase | `https://oapbpywsvgzegrhfhghn.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Anon key Supabase | `sb_publishable_2e3hma5Eo6DXz6_i034kDQ_rQl9lOhK` |
 
 ## 🔌 Integrasi Backend
 
@@ -98,15 +106,17 @@ src/
 
 ## 🔐 Keamanan
 
-- Password di-hash sebelum disimpan di localStorage
+- Password di-hash sebelum disimpan di localStorage (untuk auth lokal)
 - Role-Based Access Control (RBAC) untuk halaman dan aksi
 - Audit trail semua aktivitas penting
 - Proteksi route berbasis permission (bukan hanya UI)
+- Data inventori (sparepart, supplier, transaksi) tersimpan di Supabase
 
 ## 📝 Catatan Pengembangan
 
-- Data persist di `localStorage` browser
-- Gunakan tombol "Reset Data Aplikasi" di sidebar untuk mengembalikan data awal
+- Data inventori persist di **Supabase** (database online)
+- localStorage hanya digunakan untuk state UI (sidebar collapsed, dll)
+- Gunakan tombol "Reset Data Aplikasi" di sidebar untuk membersihkan cache browser
 - Kredensial default tidak lagi ditampilkan di halaman login
 
 ## 🧪 Testing

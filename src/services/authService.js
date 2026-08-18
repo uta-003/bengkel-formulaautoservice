@@ -1,8 +1,9 @@
-// Kunci untuk penyimpanan di localStorage
-const USERS_KEY = 'app_users'
+import { db } from './database'
+
+// Kunci untuk penyimpanan di localStorage (fallback)
 const SESSION_KEY = 'app_session'
 const AUDIT_KEY = 'app_audit_log'
-const SEQUENCE_KEY = 'app_sequence'
+const SESSION_KEY_EXPORT = SESSION_KEY
 
 // Simple hash function (bukan untuk production, hanya proteksi dasar)
 // Di aplikasi nyata, gunakan bcrypt/argon2 di server side
@@ -21,47 +22,39 @@ function verifyPassword(password, hashed) {
   return hashPassword(password) === hashed
 }
 
-/**
- * Mendapatkan ID berikutnya untuk sebuah tabel (users atau audit_log)
- * @param {string} key Nama tabel
- * @returns {number} ID berikutnya
- */
-function getSequence(key) {
-  const seq = JSON.parse(localStorage.getItem(SEQUENCE_KEY) || '{}')
-  const next = (seq[key] || 0) + 1
-  seq[key] = next
-  localStorage.setItem(SEQUENCE_KEY, JSON.stringify(seq))
-  return next
-}
-
-/**
- * Inisialisasi database pengguna jika belum ada.
- * Membuat pengguna default 'admin' dan 'staff'.
- */
-function initAuthDB() {
-  if (!localStorage.getItem(USERS_KEY)) {
-    const defaultUsers = [
-      {
-        id: getSequence('users'),
-        username: 'admin',
-        password: hashPassword('admin123'),
-        nama: 'Admin Utama',
-        role: 'ADMIN',
-        email: 'admin@example.com',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: getSequence('users'),
-        username: 'staff',
-        password: hashPassword('staff123'),
-        nama: 'Staff Gudang',
-        role: 'STAFF',
-        email: 'staff@example.com',
-        createdAt: new Date().toISOString()
+// Inisialisasi default users ke Supabase jika belum ada
+async function initAuthDB() {
+  try {
+    const users = await db.getAll(db.keys.USERS)
+    if (!users || users.length === 0) {
+      // Buat default users jika Supabase kosong
+      const defaultUsers = [
+        {
+          username: 'admin',
+          password: hashPassword('admin123'),
+          nama: 'Admin Utama',
+          role: 'ADMIN',
+          email: 'admin@example.com',
+          createdAt: new Date().toISOString()
+        },
+        {
+          username: 'staff',
+          password: hashPassword('staff123'),
+          nama: 'Staff Gudang',
+          role: 'STAFF',
+          email: 'staff@example.com',
+          createdAt: new Date().toISOString()
+        }
+      ]
+      for (const user of defaultUsers) {
+        await db.insert(db.keys.USERS, user)
       }
-    ]
-    localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers))
+    }
+  } catch (error) {
+    console.warn('Gagal inisialisasi users:', error)
   }
+
+  // Inisialisasi audit log
   if (!localStorage.getItem(AUDIT_KEY)) {
     localStorage.setItem(AUDIT_KEY, JSON.stringify([]))
   }
@@ -77,8 +70,8 @@ export const authService = {
    * @param {string} password
    * @returns {object} Data pengguna yang berhasil login
    */
-  login(username, password) {
-    const users = this.getAllUsers()
+  async login(username, password) {
+    const users = await this.getAllUsers()
     const user = users.find(u => u.username === username)
 
     if (!user || !verifyPassword(password, user.password)) {
@@ -95,7 +88,7 @@ export const authService = {
   /**
    * Logout pengguna saat ini.
    */
-  logout() {
+  async logout() {
     const user = this.getCurrentUser()
     if (user) {
       auditService.log('LOGOUT', `Pengguna ${user.username} keluar.`)
@@ -112,96 +105,117 @@ export const authService = {
   },
 
   /**
-   * Mendapatkan semua pengguna dari database.
-   * @returns {Array<object>}
+   * Mendapatkan semua pengguna dari database (Supabase sync).
+   * @returns {Promise<Array<object>>}
    */
-  getAllUsers() {
-    return JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
+  async getAllUsers() {
+    return db.getAll(db.keys.USERS)
   },
 
   /**
-   * Membuat pengguna baru.
+   * Membuat pengguna baru (disinkronkan ke Supabase).
    * @param {object} userData Data pengguna baru
-   * @returns {object} Pengguna yang baru dibuat
+   * @returns {Promise<object>} Pengguna yang baru dibuat
    */
-  createUser(userData) {
-    const users = this.getAllUsers()
+  async createUser(userData) {
+    const users = await this.getAllUsers()
     if (users.some(u => u.username === userData.username)) {
       throw new Error(`Username "${userData.username}" sudah digunakan.`)
     }
     const newUser = {
       ...userData,
       password: hashPassword(userData.password || ''),
-      id: getSequence('users'),
       createdAt: new Date().toISOString()
     }
-    users.push(newUser)
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-    return newUser
+    return await db.insert(db.keys.USERS, newUser)
   },
 
   /**
-   * Memperbarui data pengguna.
+   * Memperbarui data pengguna (disinkronkan ke Supabase).
    * @param {number} id ID pengguna
    * @param {object} updatedData Data yang akan diperbarui
    */
-  updateUser(id, updatedData) {
-    const users = this.getAllUsers()
-    const index = users.findIndex(u => u.id === id)
-    if (index === -1) throw new Error('Pengguna tidak ditemukan')
+  async updateUser(id, updatedData) {
+    const users = await this.getAllUsers()
+    const user = users.find(u => u.id === id)
+    if (!user) throw new Error('Pengguna tidak ditemukan')
 
     // Jaga password lama jika field password baru kosong
-    const newPassword = updatedData.password ? hashPassword(updatedData.password) : users[index].password
-
-    users[index] = { ...users[index], ...updatedData, password: newPassword }
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
+    const newPassword = updatedData.password ? hashPassword(updatedData.password) : user.password
+    return await db.update(db.keys.USERS, id, { ...updatedData, password: newPassword })
   },
 
   /**
-   * Menghapus pengguna.
+   * Menghapus pengguna (disinkronkan ke Supabase).
    * @param {number} id ID pengguna
    */
-  deleteUser(id) {
-    let users = this.getAllUsers()
-    users = users.filter(u => u.id !== id)
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
+  async deleteUser(id) {
+    return await db.remove(db.keys.USERS, id)
   }
 }
 
 export const auditService = {
   /**
-   * Mencatat log aktivitas baru.
+   * Mencatat log aktivitas baru (disinkronkan ke Supabase).
    * @param {string} action Tipe aksi (misal: CREATE_USER, LOGIN)
    * @param {string} detail Detail dari aksi
    */
-  log(action, detail) {
-    const logs = this.getAll()
+  async log(action, detail) {
     const currentUser = authService.getCurrentUser()
-    const newLog = {
-      id: getSequence('audit_log'),
+    const logData = {
       timestamp: new Date().toISOString(),
       user: currentUser?.nama || 'Sistem',
       role: currentUser?.role || 'SISTEM',
       action,
-      detail
+      detail,
+      createdAt: new Date().toISOString()
     }
-    logs.unshift(newLog) // Tambahkan ke awal array
-    localStorage.setItem(AUDIT_KEY, JSON.stringify(logs.slice(0, 200))) // Batasi 200 log
+
+    try {
+    // Simpan ke Supabase via db
+      await db.insert(db.keys.AUDIT_LOG, logData)
+    } catch (error) {
+      console.warn('Gagal menyimpan audit log ke Supabase:', error)
+    }
+
+    // Juga simpan ke localStorage untuk akses cepat
+    try {
+      const logs = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]')
+      logs.unshift(logData)
+      localStorage.setItem(AUDIT_KEY, JSON.stringify(logs.slice(0, 200)))
+    } catch (e) {
+      console.warn('Gagal menyimpan audit log ke localStorage:', e)
+    }
   },
 
   /**
-   * Mendapatkan semua log aktivitas.
+   * Mendapatkan semua log aktivitas (dari Supabase jika tersedia).
    * @returns {Array<object>}
    */
-  getAll() {
-    return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]')
+  async getAll() {
+    try {
+      const logs = await db.getAll(db.keys.AUDIT_LOG)
+      return logs.reverse() // Urutkan dari terbaru
+    } catch {
+      return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]')
+    }
   },
 
   /**
    * Menghapus semua log aktivitas.
    */
-  clear() {
-    localStorage.setItem(AUDIT_KEY, JSON.stringify([]))
-    this.log('CLEAR_LOGS', 'Semua log aktivitas telah dihapus.')
+  async clear() {
+    try {
+      const logs = await db.getAll(db.keys.AUDIT_LOG)
+      for (const log of logs) {
+        await db.remove(db.keys.AUDIT_LOG, log.id)
+      }
+      localStorage.setItem(AUDIT_KEY, JSON.stringify([]))
+    } catch (error) {
+      console.warn('Gagal menghapus audit log:', error)
+    }
   }
 }
+
+// Export SESSION_KEY agar dapat digunakan di luar
+export { SESSION_KEY_EXPORT as SESSION_KEY }

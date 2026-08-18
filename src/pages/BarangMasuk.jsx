@@ -12,8 +12,8 @@ import { supplierService } from '../services/supplierService'
 import { authService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
+import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
-import { LoadingScreen } from '../components/LoadingScreen'
 
 function BarangMasuk() {
   const [spareparts, setSpareparts] = useState([])
@@ -32,29 +32,26 @@ function BarangMasuk() {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [loading, setLoading] = useState(true)
 
   const currentUser = authService.getCurrentUser()
   const canCreate = rbacService.canCreateTransaction(currentUser?.role)
 
   const loadData = async () => {
-    setLoading(true)
     try {
-      const [sparepartsData, suppliersData] = await Promise.all([
+      const [sparepartsData, suppliersData, transactionsData] = await Promise.all([
         sparepartService.getAll(),
-        supplierService.getAll()
+        supplierService.getAll(),
+        transactionService.getByType('MASUK')
       ])
       setSpareparts(sparepartsData || [])
       setSuppliers(suppliersData || [])
-      setTransactions(transactionService.getByType('MASUK'))
+      setTransactions(transactionsData || [])
     } catch (error) {
       console.error('Failed to load data:', error)
       toastService.error('Gagal memuat data')
       setSpareparts([])
       setSuppliers([])
       setTransactions([])
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -76,7 +73,7 @@ function BarangMasuk() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
@@ -95,7 +92,7 @@ function BarangMasuk() {
     }
 
     try {
-      transactionService.barangMasuk({
+      await transactionService.barangMasuk({
         sparepartId: Number(form.sparepartId),
         supplierId: form.supplierId ? Number(form.supplierId) : undefined,
         jumlah: Number(form.jumlah),
@@ -105,6 +102,7 @@ function BarangMasuk() {
       })
       setSuccess('Barang masuk berhasil dicatat!')
       toastService.success('Barang masuk berhasil dicatat!')
+      soundService.add()
       setForm({
         sparepartId: '',
         supplierId: '',
@@ -119,38 +117,38 @@ function BarangMasuk() {
     } catch (err) {
       setError(err.message)
       toastService.error(err.message)
+      soundService.error()
     }
   }
 
-  const handleDelete = (t) => {
+  const handleDelete = async (t) => {
     if (confirm(`Hapus transaksi "${t.nomor}"? Stok akan dikembalikan.`)) {
       try {
-        transactionService.deleteTransaction(t.id)
+        await transactionService.deleteTransaction(t.id)
         setSuccess('Transaksi berhasil dihapus dan stok dikembalikan!')
         toastService.success('Transaksi berhasil dihapus')
+        soundService.delete()
         loadData()
       } catch (err) {
         setError(err.message)
         toastService.error(err.message)
+        soundService.error()
       }
     }
   }
 
-  const handleExport = () => {
-    const { headers, rows, filename } = transactionService.exportToCSV('MASUK')
+  const handleExport = async () => {
+    const { headers, rows, filename } = await transactionService.exportToCSV('MASUK')
     const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = filename
     link.click()
+    soundService.export()
   }
 
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-
-  if (loading) {
-    return <LoadingScreen message="Memuat data barang masuk..." />
-  }
 
   return (
     <div className="space-y-6">

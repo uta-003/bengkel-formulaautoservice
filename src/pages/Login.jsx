@@ -11,19 +11,15 @@ function Login() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      const user = authService.login(username, password)
+      const user = await authService.login(username, password)
       toastService.success(`Selamat datang, ${user.nama}!`)
-      if (user.role === 'ADMIN') {
-        navigate('/')
-      } else {
-        navigate('/')
-      }
+      navigate('/')
     } catch (err) {
       setError(err.message)
       toastService.error(err.message)

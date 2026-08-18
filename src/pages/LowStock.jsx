@@ -8,12 +8,10 @@ import {
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { toastService } from '../services/toastService'
-import { LoadingScreen } from '../components/LoadingScreen'
 
 function LowStock() {
   const [lowStockItems, setLowStockItems] = useState([])
   const [allSpareparts, setAllSpareparts] = useState([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let isMounted = true
@@ -27,8 +25,6 @@ function LowStock() {
       } catch (error) {
         console.error('Failed to load data:', error)
         if (isMounted) toastService.error('Gagal memuat data low stock')
-      } finally {
-        if (isMounted) setLoading(false)
       }
     }
 
@@ -41,10 +37,6 @@ function LowStock() {
 
   const criticalItems = lowStockItems.filter(sp => Number(sp.stok) === 0)
   const warningItems = lowStockItems.filter(sp => Number(sp.stok) > 0)
-
-  if (loading) {
-    return <LoadingScreen message="Memuat data low stock..." />
-  }
 
   return (
     <div className="space-y-6">

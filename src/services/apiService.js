@@ -1,6 +1,8 @@
 // API Service untuk komunikasi dengan backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
-const DEFAULT_TIMEOUT = 5000
+import { supabase } from './supabaseClient'
+
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '')
+const DEFAULT_TIMEOUT = 10000
 
 class ApiError extends Error {
   constructor(message, status = 0, endpoint = '') {
@@ -44,9 +46,14 @@ class ApiService {
       if (error.name === 'AbortError') {
         throw new ApiError(`Request timeout untuk ${endpoint}`, 0, endpoint)
       }
-      if (error instanceof ApiError) throw error
-      // Network error - server tidak tersedia
-      throw new ApiError(`Koneksi ke server gagal untuk ${endpoint}`, 0, endpoint)
+      if (error instanceof ApiError) {
+        throw error
+      }
+      // Network error seperti "Failed to fetch" - tampilkan pesan yang ramah
+      const message = error.message === 'Failed to fetch'
+        ? 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.'
+        : `Koneksi ke server gagal untuk ${endpoint}`
+      throw new ApiError(message, 0, endpoint)
     } finally {
       clearTimeout(timeoutId)
     }
@@ -57,108 +64,228 @@ class ApiService {
     return this.request('/health')
   }
 
-  // Units
-  async getUnits() {
-    return this.request('/units')
-  }
-
-  // Spareparts
+  // Spareparts - using Supabase
   async getSpareparts() {
-    return this.request('/spareparts')
+    try {
+      const { data, error } = await supabase.from('spareparts').select('*')
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase gagal, fallback ke API lokal:', error.message)
+      return this.request('/spareparts')
+    }
   }
 
   async getSparepartById(id) {
-    return this.request(`/spareparts/${id}`)
+    try {
+      const { data, error } = await supabase.from('spareparts').select('*').eq('id', id).single()
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase getById gagal, fallback ke API lokal:', error.message)
+      return this.request(`/spareparts/${id}`)
+    }
   }
 
   async createSparepart(data) {
-    return this.request('/spareparts', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    })
+    try {
+      const { data: result, error } = await supabase.from('spareparts').insert(data).select().single()
+      if (error) throw error
+      return result
+    } catch (error) {
+      console.warn('Supabase create gagal, fallback ke API lokal:', error.message)
+      return this.request('/spareparts', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      })
+    }
   }
 
   async updateSparepart(id, data) {
-    return this.request(`/spareparts/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    })
+    try {
+      const { data: result, error } = await supabase.from('spareparts').update(data).eq('id', id).select().single()
+      if (error) throw error
+      return result
+    } catch (error) {
+      console.warn('Supabase update gagal, fallback ke API lokal:', error.message)
+      return this.request(`/spareparts/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      })
+    }
   }
 
   async deleteSparepart(id) {
-    return this.request(`/spareparts/${id}`, {
-      method: 'DELETE'
-    })
+    try {
+      const { error } = await supabase.from('spareparts').delete().eq('id', id)
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.warn('Supabase delete gagal, fallback ke API lokal:', error.message)
+      return this.request(`/spareparts/${id}`, {
+        method: 'DELETE'
+      })
+    }
   }
 
-  // Suppliers
+  // Suppliers - using Supabase
   async getSuppliers() {
-    return this.request('/suppliers')
+    try {
+      const { data, error } = await supabase.from('suppliers').select('*')
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase getSuppliers gagal, fallback ke API lokal:', error.message)
+      return this.request('/suppliers')
+    }
   }
 
   async getSupplierById(id) {
-    return this.request(`/suppliers/${id}`)
+    try {
+      const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single()
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase getSupplierById gagal, fallback ke API lokal:', error.message)
+      return this.request(`/suppliers/${id}`)
+    }
   }
 
   async createSupplier(data) {
-    return this.request('/suppliers', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    })
+    try {
+      const { data: result, error } = await supabase.from('suppliers').insert(data).select().single()
+      if (error) throw error
+      return result
+    } catch (error) {
+      console.warn('Supabase createSupplier gagal, fallback ke API lokal:', error.message)
+      return this.request('/suppliers', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      })
+    }
   }
 
   async updateSupplier(id, data) {
-    return this.request(`/suppliers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    })
+    try {
+      const { data: result, error } = await supabase.from('suppliers').update(data).eq('id', id).select().single()
+      if (error) throw error
+      return result
+    } catch (error) {
+      console.warn('Supabase updateSupplier gagal, fallback ke API lokal:', error.message)
+      return this.request(`/suppliers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      })
+    }
   }
 
   async deleteSupplier(id) {
-    return this.request(`/suppliers/${id}`, {
-      method: 'DELETE'
-    })
+    try {
+      const { error } = await supabase.from('suppliers').delete().eq('id', id)
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.warn('Supabase deleteSupplier gagal, fallback ke API lokal:', error.message)
+      return this.request(`/suppliers/${id}`, {
+        method: 'DELETE'
+      })
+    }
   }
 
-  // Tickets
+  // Tickets - using Supabase
   async createTicket(ticketData) {
-    return this.request('/tickets', {
-      method: 'POST',
-      body: JSON.stringify(ticketData)
-    })
+    try {
+      const { data, error } = await supabase.from('tickets').insert(ticketData).select().single()
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase createTicket gagal, fallback ke API lokal:', error.message)
+      return this.request('/tickets', {
+        method: 'POST',
+        body: JSON.stringify(ticketData)
+      })
+    }
   }
 
   async trackTicket(ticketNumber) {
-    return this.request(`/tickets/track/${ticketNumber}`)
+    try {
+      const { data, error } = await supabase.from('tickets').select('*').eq('ticket_number', ticketNumber).single()
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase trackTicket gagal, fallback ke API lokal:', error.message)
+      return this.request(`/tickets/track/${ticketNumber}`)
+    }
   }
 
   async getTickets() {
-    return this.request('/tickets')
+    try {
+      const { data, error } = await supabase.from('tickets').select('*')
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase getTickets gagal, fallback ke API lokal:', error.message)
+      return this.request('/tickets')
+    }
   }
 
   async getTicketById(id) {
-    return this.request(`/tickets/${id}`)
+    try {
+      const { data, error } = await supabase.from('tickets').select('*').eq('id', id).single()
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.warn('Supabase getTicketById gagal, fallback ke API lokal:', error.message)
+      return this.request(`/tickets/${id}`)
+    }
   }
 
   async updateTicket(id, data) {
-    return this.request(`/tickets/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    })
+    try {
+      const { data: result, error } = await supabase.from('tickets').update(data).eq('id', id).select().single()
+      if (error) throw error
+      return result
+    } catch (error) {
+      console.warn('Supabase updateTicket gagal, fallback ke API lokal:', error.message)
+      return this.request(`/tickets/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      })
+    }
   }
 
   async deleteTicket(id) {
-    return this.request(`/tickets/${id}`, {
-      method: 'DELETE'
-    })
+    try {
+      const { error } = await supabase.from('tickets').delete().eq('id', id)
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.warn('Supabase deleteTicket gagal, fallback ke API lokal:', error.message)
+      return this.request(`/tickets/${id}`, {
+        method: 'DELETE'
+      })
+    }
   }
 
   // Export
   async exportExcel() {
     try {
-      const response = await fetch(`${API_BASE_URL}/export/excel`)
-      if (!response.ok) throw new ApiError('Failed to export', response.status, '/export/excel')
-      return response.blob()
+      const { data, error } = await supabase.from('spareparts').select('*')
+      if (error) throw error
+      // Convert to CSV format
+      const headers = ['Kode', 'Nama', 'Kategori', 'Merk', 'Harga Beli', 'Harga Jual', 'Stok', 'Stok Min', 'Barcode']
+      const rows = data.map(sp => [
+        sp.kode,
+        sp.nama,
+        sp.kategori,
+        sp.merk,
+        sp.hargaBeli,
+        sp.hargaJual,
+        sp.stok,
+        sp.stokMinimum,
+        sp.barcode || ''
+      ])
+      return { headers, rows }
     } catch (error) {
       if (error instanceof ApiError) throw error
       throw new ApiError('Koneksi ke server gagal untuk export', 0, '/export/excel')

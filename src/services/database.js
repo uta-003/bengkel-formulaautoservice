@@ -1,209 +1,401 @@
-// Simulasi Database Relasional menggunakan localStorage
-// Struktur tabel: spareparts, suppliers, transactions, stock_movements
+// Database layer menggunakan Supabase sebagai sumber data utama
+// Tabel: spareparts, suppliers, transactions, stock_movements, users, audit_log
+// Fallback ke localStorage jika Supabase tidak tersedia
+
+import { supabase } from './supabaseClient'
 
 const DB_KEYS = {
   SPAREPARTS: 'spareparts',
   SUPPLIERS: 'suppliers',
   TRANSACTIONS: 'transactions',
   STOCK_MOVEMENTS: 'stock_movements',
-  SEQUENCE: 'sequence_counter'
+  SCAN_HISTORY: 'scan_history',
+  USERS: 'users',
+  AUDIT_LOG: 'audit_log'
 }
 
-// Inisialisasi data awal
-const seedData = {
-  suppliers: [
-    {
-      id: 1,
-      kode: 'SUP-001',
-      nama: 'PT Sumber Jaya Motor',
-      alamat: 'Jl. Raya Cikarang No. 45, Bekasi',
-      telepon: '021-88901234',
-      email: 'sales@sumberjaya.co.id',
-      kontak: 'Budi Santoso',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 2,
-      kode: 'SUP-002',
-      nama: 'CV Auto Parts Indonesia',
-      alamat: 'Jl. Gatot Subroto No. 12, Jakarta',
-      telepon: '021-56781234',
-      email: 'info@autoparts.co.id',
-      kontak: 'Siti Rahayu',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 3,
-      kode: 'SUP-003',
-      nama: 'PT Mitra Sparepart Nusantara',
-      alamat: 'Jl. Ahmad Yani No. 78, Bandung',
-      telepon: '022-45678901',
-      email: 'cs@mitrasparepart.co.id',
-      kontak: 'Agus Wijaya',
-      createdAt: new Date().toISOString()
+// Mapping field names antara Supabase (snake_case) dan aplikasi (camelCase)
+const FIELD_MAPPINGS = {
+  spareparts: {
+    supplierId: 'supplier_id',
+    hargaBeli: 'harga_beli',
+    hargaJual: 'harga_jual',
+    stokMinimum: 'stok_minimum',
+    createdAt: 'created_at'
+  },
+  suppliers: {
+    createdAt: 'created_at'
+  },
+  transactions: {
+    sparepartId: 'sparepart_id',
+    supplierId: 'supplier_id',
+    hargaSatuan: 'harga_satuan',
+    createdAt: 'created_at'
+  },
+  stock_movements: {
+    sparepartId: 'sparepart_id',
+    stokSebelum: 'stok_sebelum',
+    stokSesudah: 'stok_sesudah',
+    referensiId: 'referensi_id',
+    createdAt: 'created_at'
+  },
+  scan_history: {
+    sparepartId: 'sparepart_id',
+    sparepartName: 'sparepart_name',
+    scannedAt: 'scanned_at',
+    createdAt: 'created_at'
+  },
+  users: {
+    createdAt: 'created_at'
+  },
+  audit_log: {
+    createdAt: 'created_at'
+  }
+}
+
+// Konversi data dari Supabase (snake_case) ke format aplikasi (camelCase)
+function mapFromDB(table, data) {
+  if (!data) return data
+  const mapping = FIELD_MAPPINGS[table] || {}
+  const reverseMap = {}
+  Object.entries(mapping).forEach(([camel, snake]) => {
+    reverseMap[snake] = camel
+  })
+
+  const result = {}
+  Object.entries(data).forEach(([key, value]) => {
+    const camelKey = reverseMap[key] || key
+    result[camelKey] = value
+  })
+  return result
+}
+
+// Konversi data dari aplikasi (camelCase) ke format Supabase (snake_case)
+function mapToDB(table, data) {
+  if (!data) return data
+  const mapping = FIELD_MAPPINGS[table] || {}
+  const result = {}
+  Object.entries(data).forEach(([key, value]) => {
+    const snakeKey = mapping[key] || key
+    result[snakeKey] = value
+  })
+  return result
+}
+
+// In-memory cache untuk mengurangi fetch berulang ke Supabase
+const cache = new Map()
+const CACHE_TTL = 10000 // 10 detik
+
+function getCached(table) {
+  const entry = cache.get(table)
+  if (!entry) return null
+  if (Date.now() - entry.timestamp > CACHE_TTL) {
+    cache.delete(table)
+    return null
+  }
+  return entry.data
+}
+
+function setCached(table, data) {
+  cache.set(table, { data, timestamp: Date.now() })
+}
+
+function clearCache(table) {
+  if (table) {
+    cache.delete(table)
+  } else {
+    cache.clear()
+  }
+}
+
+// Kunci untuk localStorage fallback
+const LS_PREFIX = 'app_'
+const LS_KEYS = {
+  [DB_KEYS.SPAREPARTS]: `${LS_PREFIX}spareparts_data`,
+  [DB_KEYS.SUPPLIERS]: `${LS_PREFIX}suppliers_data`,
+  [DB_KEYS.TRANSACTIONS]: `${LS_PREFIX}transactions_data`,
+  [DB_KEYS.STOCK_MOVEMENTS]: `${LS_PREFIX}stock_movements_data`,
+  [DB_KEYS.SCAN_HISTORY]: `${LS_PREFIX}scan_history_data`,
+  [DB_KEYS.USERS]: `${LS_PREFIX}users_data`,
+  [DB_KEYS.AUDIT_LOG]: `${LS_PREFIX}audit_log_data`
+}
+
+// Flag status koneksi Supabase
+let supabaseAvailable = true
+let lastSupabaseCheck = 0
+const SUPABASE_CHECK_INTERVAL = 30000 // 30 detik
+
+// Event yang dipancarkan setiap kali data berubah
+const DB_CHANGE_EVENT = 'db-updated'
+
+function notifyChange(table, operation) {
+  clearCache(table)
+  window.dispatchEvent(new CustomEvent(DB_CHANGE_EVENT, {
+    detail: { table, operation, timestamp: Date.now() }
+  }))
+}
+
+// ---- Helper untuk localStorage fallback ----
+function getLocalData(table) {
+  try {
+    const key = LS_KEYS[table]
+    if (!key) return []
+    return JSON.parse(localStorage.getItem(key) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveLocalData(table, data) {
+  try {
+    const key = LS_KEYS[table]
+    if (!key) return
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch (e) {
+    console.warn(`Gagal menyimpan data ${table} ke localStorage:`, e)
+  }
+}
+
+function getNextLocalId(table) {
+  const data = getLocalData(table)
+  const maxId = data.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0)
+  const nextId = maxId + 1
+
+  // Simpan ID berikutnya untuk konsistensi
+  const seqKey = `${LS_PREFIX}sequence`
+  const seq = JSON.parse(localStorage.getItem(seqKey) || '{}')
+  seq[table] = nextId
+  localStorage.setItem(seqKey, JSON.stringify(seq))
+
+  return nextId
+}
+
+// ---- Fungsi untuk menandai status Supabase ----
+function setSupabaseUnavailable(error) {
+  supabaseAvailable = false
+  lastSupabaseCheck = Date.now()
+  console.warn('Supabase tidak tersedia, beralih ke mode localStorage:', error?.message || error)
+}
+
+function setSupabaseAvailable() {
+  supabaseAvailable = true
+  lastSupabaseCheck = Date.now()
+}
+
+function isSupabaseUsable() {
+  if (supabaseAvailable) return true
+  // Setelah interval, coba lagi
+  return Date.now() - lastSupabaseCheck > SUPABASE_CHECK_INTERVAL
+}
+
+// Cek apakah error adalah "Failed to fetch" (network error) atau error Supabase lain
+function isNetworkError(error) {
+  if (!error) return false
+  const message = String(error.message || error).toLowerCase()
+  return message.includes('failed to fetch') ||
+    message.includes('networkerror') ||
+    message.includes('network error') ||
+    message.includes('load failed') ||
+    message.includes('fetch failed') ||
+    message.includes('connection') ||
+    message.includes('could not reach') ||
+    message.includes('networkrequestfailed') ||
+    error.name === 'TypeError'
+}
+
+// ---- Generic CRUD operations ----
+async function getAll(table) {
+  // Cek cache dulu
+  const cached = getCached(table)
+  if (cached) return cached
+
+  // Coba Supabase dulu jika dianggap tersedia
+  if (isSupabaseUsable()) {
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('id', { ascending: true })
+      if (error) throw error
+      if (data) {
+        setSupabaseAvailable()
+        // Konversi dari snake_case ke camelCase
+        const mappedData = data.map(item => mapFromDB(table, item))
+        // Simpan ke localStorage sebagai cache
+        saveLocalData(table, mappedData)
+        // Simpan ke in-memory cache
+        setCached(table, mappedData)
+        return mappedData
+      }
+    } catch (error) {
+      if (isNetworkError(error)) {
+        console.warn(`Network error saat mengambil ${table}:`, error.message)
+      }
+      setSupabaseUnavailable(error)
     }
-  ],
-  spareparts: [
-    {
-      id: 1,
-      kode: 'SPR-001',
-      nama: 'Oli Mesin 1L',
-      kategori: 'Pelumas',
-      merk: 'Shell',
-      supplierId: 1,
-      hargaBeli: 45000,
-      hargaJual: 55000,
-      stok: 25,
-      stokMinimum: 10,
-      lokasi: 'Rak A-1',
-      barcode: '8991234567890',
-      satuan: 'liter',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 2,
-      kode: 'SPR-002',
-      nama: 'Filter Udara',
-      kategori: 'Filter',
-      merk: 'Denso',
-      supplierId: 2,
-      hargaBeli: 35000,
-      hargaJual: 45000,
-      stok: 8,
-      stokMinimum: 15,
-      lokasi: 'Rak B-2',
-      barcode: '8991234567891',
-      satuan: 'pcs',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 3,
-      kode: 'SPR-003',
-      nama: 'Busi Iridium',
-      kategori: 'Kelistrikan',
-      merk: 'NGK',
-      supplierId: 1,
-      hargaBeli: 60000,
-      hargaJual: 75000,
-      stok: 30,
-      stokMinimum: 12,
-      lokasi: 'Rak C-1',
-      barcode: '8991234567892',
-      satuan: 'pcs',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 4,
-      kode: 'SPR-004',
-      nama: 'Kampas Rem Depan',
-      kategori: 'Rem',
-      merk: 'Aisin',
-      supplierId: 3,
-      hargaBeli: 120000,
-      hargaJual: 150000,
-      stok: 5,
-      stokMinimum: 8,
-      lokasi: 'Rak D-3',
-      barcode: '8991234567893',
-      satuan: 'set',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 5,
-      kode: 'SPR-005',
-      nama: 'Aki 35Ah',
-      kategori: 'Kelistrikan',
-      merk: 'GS Astra',
-      supplierId: 2,
-      hargaBeli: 350000,
-      hargaJual: 420000,
-      stok: 12,
-      stokMinimum: 5,
-      lokasi: 'Rak E-1',
-      barcode: '8991234567894',
-      satuan: 'unit',
-      createdAt: new Date().toISOString()
+  }
+
+  // Fallback ke localStorage
+  console.info(`Menggunakan data ${table} dari localStorage (mode offline)`)
+  const localData = getLocalData(table)
+  setCached(table, localData)
+  return localData
+}
+
+async function getById(table, id) {
+  // Coba Supabase
+  if (isSupabaseUsable()) {
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) {
+        if (error.code === 'PGRST116') return null // not found
+        throw error
+      }
+      setSupabaseAvailable()
+      return mapFromDB(table, data)
+    } catch (error) {
+      if (error.code === 'PGRST116') return null
+      setSupabaseUnavailable(error)
     }
-  ],
-  transactions: [],
-  stock_movements: []
-}
-
-function getSequence(key) {
-  const seq = JSON.parse(localStorage.getItem(DB_KEYS.SEQUENCE) || '{}')
-  const next = (seq[key] || 0) + 1
-  seq[key] = next
-  localStorage.setItem(DB_KEYS.SEQUENCE, JSON.stringify(seq))
-  return next
-}
-
-function initDB() {
-  if (!localStorage.getItem(DB_KEYS.SPAREPARTS)) {
-    localStorage.setItem(DB_KEYS.SPAREPARTS, JSON.stringify(seedData.spareparts))
   }
-  if (!localStorage.getItem(DB_KEYS.SUPPLIERS)) {
-    localStorage.setItem(DB_KEYS.SUPPLIERS, JSON.stringify(seedData.suppliers))
-  }
-  if (!localStorage.getItem(DB_KEYS.TRANSACTIONS)) {
-    localStorage.setItem(DB_KEYS.TRANSACTIONS, JSON.stringify([]))
-  }
-  if (!localStorage.getItem(DB_KEYS.STOCK_MOVEMENTS)) {
-    localStorage.setItem(DB_KEYS.STOCK_MOVEMENTS, JSON.stringify([]))
-  }
+
+  // Fallback localStorage
+  const data = getLocalData(table)
+  return data.find(item => Number(item.id) === Number(id)) || null
 }
 
-// Generic CRUD operations
-function getAll(table) {
-  return JSON.parse(localStorage.getItem(table) || '[]')
-}
+async function insert(table, data) {
+  // Coba Supabase
+  if (isSupabaseUsable()) {
+    try {
+      // Konversi dari camelCase ke snake_case untuk Supabase
+      const dbData = mapToDB(table, data)
+      const { data: result, error } = await supabase
+        .from(table)
+        .insert(dbData)
+        .select()
+        .single()
+      if (error) throw error
+      setSupabaseAvailable()
+      notifyChange(table, 'insert')
+      return mapFromDB(table, result)
+    } catch (error) {
+      setSupabaseUnavailable(error)
+    }
+  }
 
-function getById(table, id) {
-  return getAll(table).find(item => item.id === id)
-}
-
-function insert(table, data) {
-  const items = getAll(table)
-  const newItem = { ...data, id: getSequence(table) }
-  items.push(newItem)
-  localStorage.setItem(table, JSON.stringify(items))
+  // Fallback localStorage
+  const allData = getLocalData(table)
+  const newItem = {
+    ...data,
+    id: getNextLocalId(table),
+    createdAt: data.createdAt || new Date().toISOString()
+  }
+  allData.push(newItem)
+  saveLocalData(table, allData)
+  notifyChange(table, 'insert')
   return newItem
 }
 
-function update(table, id, data) {
-  const items = getAll(table)
-  const index = items.findIndex(item => item.id === id)
-  if (index !== -1) {
-    items[index] = { ...items[index], ...data }
-    localStorage.setItem(table, JSON.stringify(items))
-    return items[index]
+async function update(table, id, data) {
+  // Coba Supabase
+  if (isSupabaseUsable()) {
+    try {
+      // Konversi dari camelCase ke snake_case untuk Supabase
+      const dbData = mapToDB(table, data)
+      const { data: result, error } = await supabase
+        .from(table)
+        .update(dbData)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      setSupabaseAvailable()
+      notifyChange(table, 'update')
+      return mapFromDB(table, result)
+    } catch (error) {
+      setSupabaseUnavailable(error)
+    }
   }
-  return null
+
+  // Fallback localStorage
+  const allData = getLocalData(table)
+  const index = allData.findIndex(item => Number(item.id) === Number(id))
+  if (index === -1) throw new Error('Data tidak ditemukan')
+  allData[index] = { ...allData[index], ...data, id: Number(id) }
+  saveLocalData(table, allData)
+  notifyChange(table, 'update')
+  return allData[index]
 }
 
-function remove(table, id) {
-  const items = getAll(table)
-  const filtered = items.filter(item => item.id !== id)
-  localStorage.setItem(table, JSON.stringify(filtered))
-  return filtered
+async function remove(table, id) {
+  // Coba Supabase
+  if (isSupabaseUsable()) {
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+      setSupabaseAvailable()
+      notifyChange(table, 'remove')
+      return true
+    } catch (error) {
+      setSupabaseUnavailable(error)
+    }
+  }
+
+  // Fallback localStorage
+  const allData = getLocalData(table)
+  const filtered = allData.filter(item => Number(item.id) !== Number(id))
+  saveLocalData(table, filtered)
+  notifyChange(table, 'remove')
+  return true
 }
 
-function resetDB() {
-  localStorage.removeItem(DB_KEYS.SPAREPARTS)
-  localStorage.removeItem(DB_KEYS.SUPPLIERS)
-  localStorage.removeItem(DB_KEYS.TRANSACTIONS)
-  localStorage.removeItem(DB_KEYS.STOCK_MOVEMENTS)
-  localStorage.removeItem(DB_KEYS.SEQUENCE)
-  initDB()
+// ---- Operasi khusus untuk users & audit_log ----
+async function getAllUsers() {
+  return getAll(DB_KEYS.USERS)
+}
+
+async function findUserByUsername(username) {
+  // Coba langsung ke Supabase dulu
+  if (isSupabaseUsable()) {
+    try {
+      const { data, error } = await supabase
+        .from(DB_KEYS.USERS)
+        .select('*')
+        .eq('username', username)
+        .maybeSingle()
+      if (error) throw error
+      if (data) {
+        setSupabaseAvailable()
+        return mapFromDB(DB_KEYS.USERS, data)
+      }
+    } catch (error) {
+      setSupabaseUnavailable(error)
+    }
+  }
+
+  // Fallback localStorage
+  const users = getLocalData(DB_KEYS.USERS)
+  return users.find(u => u.username === username) || null
 }
 
 export const db = {
   keys: DB_KEYS,
-  init: initDB,
   getAll,
   getById,
   insert,
   update,
   remove,
-  reset: resetDB,
-  getSequence
+  getAllUsers,
+  findUserByUsername,
+  clearCache,
+  changeEvent: DB_CHANGE_EVENT,
+  isSupabaseAvailable: () => supabaseAvailable
 }

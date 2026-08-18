@@ -15,6 +15,7 @@ import { formatRupiah } from '../utils/format'
 function SparepartDetail({ sparepartId, onClose }) {
   const [sparepart, setSparepart] = useState(null)
   const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let isMounted = true
@@ -22,15 +23,18 @@ function SparepartDetail({ sparepartId, onClose }) {
     const loadData = async () => {
       if (!sparepartId) return
       try {
-        const [spDetail] = await Promise.all([
-          sparepartService.getById(sparepartId)
+        const [spDetail, spTransactions] = await Promise.all([
+          sparepartService.getById(sparepartId),
+          transactionService.getBySparepartId(sparepartId)
         ])
         if (isMounted) {
           setSparepart(spDetail)
-          setTransactions(transactionService.getBySparepartId(sparepartId))
+          setTransactions(spTransactions)
         }
       } catch (error) {
         console.error('Failed to load detail:', error)
+      } finally {
+        if (isMounted) setLoading(false)
       }
     }
 
@@ -41,6 +45,7 @@ function SparepartDetail({ sparepartId, onClose }) {
     }
   }, [sparepartId])
 
+  if (loading) return null
   if (!sparepart) return null
 
   const isLowStock = sparepart.stok <= sparepart.stokMinimum

@@ -21,6 +21,7 @@ function Pengaturan() {
   const [auditLogs, setAuditLogs] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [form, setForm] = useState({
     username: '',
     password: '',
@@ -39,16 +40,27 @@ function Pengaturan() {
     }
   }, [currentUser, navigate])
 
-  const loadData = () => {
-    setUsers(authService.getAllUsers())
-    setAuditLogs(auditService.getAll())
+  const loadData = async () => {
+    try {
+      const [usersData, auditData] = await Promise.all([
+        authService.getAllUsers(),
+        auditService.getAll()
+      ])
+      setUsers(usersData || [])
+      setAuditLogs(auditData || [])
+    } catch (err) {
+      console.error('Failed to load settings data:', err)
+      toastService.error('Gagal memuat data pengaturan')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setFormErrors({})
@@ -74,22 +86,22 @@ function Pengaturan() {
         if (!rbacService.canCreateUser(currentUser.role) && editingId !== currentUser.id) {
           throw new Error('Anda tidak memiliki akses untuk mengubah pengguna lain')
         }
-        authService.updateUser(editingId, form)
-        auditService.log('UPDATE_USER', `Mengubah pengguna ${form.username}`)
+        await authService.updateUser(editingId, form)
+        await auditService.log('UPDATE_USER', `Mengubah pengguna ${form.username}`)
         toastService.success(`Pengguna ${form.username} berhasil diubah`)
       } else {
         // Check permission to create
         if (!rbacService.canCreateUser(currentUser.role)) {
           throw new Error('Anda tidak memiliki akses untuk membuat pengguna')
         }
-        authService.createUser(form)
-        auditService.log('CREATE_USER', `Menambah pengguna ${form.username}`)
+        await authService.createUser(form)
+        await auditService.log('CREATE_USER', `Menambah pengguna ${form.username}`)
         toastService.success(`Pengguna ${form.username} berhasil ditambahkan`)
       }
       setShowModal(false)
       setForm({ username: '', password: '', nama: '', role: 'STAFF', email: '' })
       setEditingId(null)
-      loadData()
+      await loadData()
     } catch (err) {
       setError(err.message)
       toastService.error(err.message)
@@ -112,32 +124,32 @@ function Pengaturan() {
     setShowModal(true)
   }
 
-  const handleDelete = (user) => {
+  const handleDelete = async (user) => {
     if (!rbacService.canDeleteUser(currentUser.role)) {
       toastService.error('Anda tidak memiliki akses untuk menghapus pengguna')
       return
     }
-    if (user.id === 1) {
+    if (user.id === 1 || user.username === 'admin') {
       toastService.warning('Tidak dapat menghapus akun admin utama')
       return
     }
     if (confirm(`Hapus pengguna "${user.nama}"?`)) {
       try {
-        authService.deleteUser(user.id)
-        auditService.log('DELETE_USER', `Menghapus pengguna ${user.username}`)
+        await authService.deleteUser(user.id)
+        await auditService.log('DELETE_USER', `Menghapus pengguna ${user.username}`)
         toastService.success(`Pengguna ${user.username} berhasil dihapus`)
-        loadData()
+        await loadData()
       } catch (err) {
         toastService.error(err.message)
       }
     }
   }
 
-  const handleClearLogs = () => {
+  const handleClearLogs = async () => {
     if (confirm('Hapus semua log aktivitas?')) {
       try {
-        auditService.clear()
-        loadData()
+        await auditService.clear()
+        await loadData()
         toastService.success('Log aktivitas berhasil dihapus')
       } catch (err) {
         toastService.error(err.message)
@@ -146,6 +158,17 @@ function Pengaturan() {
   }
 
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Memuat pengaturan...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -186,39 +209,47 @@ function Pengaturan() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{user.nama}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{user.username}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{user.email || '-'}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-brand-50 text-brand-700 border border-brand-100'
-                    }`}>
-                      <Shield className="w-3 h-3" />
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleEdit(user)}
-                        className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Hapus"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                    Belum ada pengguna terdaftar
                   </td>
                 </tr>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{user.nama}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{user.username}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{user.email || '-'}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-brand-50 text-brand-700 border border-brand-100'
+                      }`}>
+                        <Shield className="w-3 h-3" />
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleEdit(user)}
+                          className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Hapus"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -259,7 +290,7 @@ function Pengaturan() {
                 </tr>
               ) : (
                 auditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
+                  <tr key={log.id || `${log.timestamp}-${log.action}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {new Date(log.timestamp).toLocaleString('id-ID')}
                     </td>

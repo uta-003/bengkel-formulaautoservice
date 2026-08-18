@@ -1,10 +1,10 @@
-import { apiService } from './apiService'
 import { db } from './database'
+import { generateUniqueBarcode, generateKodeSparepart } from '../utils/barcode'
 
-// Helper untuk get fallback
-function getLocalAll() {
-  const items = db.getAll(db.keys.SPAREPARTS)
-  const suppliers = db.getAll('suppliers')
+// Helper untuk get data dari Supabase (async)
+async function getSupabaseAll() {
+  const items = await db.getAll(db.keys.SPAREPARTS)
+  const suppliers = await db.getAll('suppliers')
   return items.map(sp => ({
     ...sp,
     supplier: suppliers.find(s => Number(s.id) === Number(sp.supplierId)) || null
@@ -12,60 +12,37 @@ function getLocalAll() {
 }
 
 export const sparepartService = {
+  // Gunakan Supabase sebagai database utama
   async getAll() {
-    try {
-      const response = await apiService.getSpareparts()
-      return response?.data || []
-    } catch (error) {
-      // Fallback ke localStorage ketika API tidak tersedia
-      console.warn('API tidak tersedia, menggunakan data lokal:', error.message)
-      return getLocalAll()
-    }
+    return getSupabaseAll()
   },
 
   async getById(id) {
-    try {
-      const response = await apiService.getSparepartById(id)
-      if (response?.data) return response.data
-      throw new Error('Data kosong')
-    } catch (error) {
-      console.warn('API getById gagal, fallback lokal:', error.message)
-      const local = db.getById('spareparts', id)
-      if (!local) return null
-      const suppliers = db.getAll('suppliers')
-      return { ...local, supplier: suppliers.find(s => Number(s.id) === Number(local.supplierId)) || null }
-    }
+    const local = await db.getById('spareparts', id)
+    if (!local) return null
+    const suppliers = await db.getAll('suppliers')
+    return { ...local, supplier: suppliers.find(s => Number(s.id) === Number(local.supplierId)) || null }
   },
 
   async create(data) {
-    try {
-      const response = await apiService.createSparepart(data)
-      return response?.data || null
-    } catch (error) {
-      console.warn('API create gagal, fallback lokal:', error.message)
-      const newItem = db.insert('spareparts', data)
-      return { ...newItem, supplier: null }
-    }
+    // Auto-generate kode jika kosong
+    const existingSpareparts = await db.getAll(db.keys.SPAREPARTS)
+    const nextId = existingSpareparts.length + 1
+    const kode = data.kode || generateKodeSparepart(nextId)
+
+    // Auto-generate barcode jika kosong
+    const barcode = data.barcode || generateUniqueBarcode(nextId, existingSpareparts)
+
+    const newItem = await db.insert('spareparts', { ...data, kode, barcode })
+    return { ...newItem, supplier: null }
   },
 
   async update(id, data) {
-    try {
-      const response = await apiService.updateSparepart(id, data)
-      if (response?.data) return response.data
-      throw new Error('Data kosong')
-    } catch (error) {
-      console.warn('API update gagal, fallback lokal:', error.message)
-      return db.update('spareparts', id, data)
-    }
+    return db.update('spareparts', id, data)
   },
 
   async delete(id) {
-    try {
-      await apiService.deleteSparepart(id)
-    } catch (error) {
-      console.warn('API delete gagal, fallback lokal:', error.message)
-      db.remove('spareparts', id)
-    }
+    await db.remove('spareparts', id)
     return true
   },
 
@@ -84,12 +61,12 @@ export const sparepartService = {
   },
 
   findByBarcode(barcode, items = []) {
-    const list = items.length > 0 ? items : getLocalAll()
+    const list = items.length > 0 ? items : []
     return list.find(sp => (sp.barcode || '') === barcode) || null
   },
 
   getLowStock(items = []) {
-    const list = items.length > 0 ? items : getLocalAll()
+    const list = items
     return list.filter(sp => Number(sp.stok || 0) <= Number(sp.stokMinimum || 0))
   },
 
@@ -102,12 +79,12 @@ export const sparepartService = {
   },
 
   getCategories(items = []) {
-    const list = items.length > 0 ? items : getLocalAll()
+    const list = items
     return [...new Set(list.map(sp => sp.kategori).filter(Boolean))]
   },
 
   getStats(items = []) {
-    const list = items.length > 0 ? items : getLocalAll()
+    const list = items
     const lowStock = this.getLowStock(list)
     const totalStok = list.reduce((sum, sp) => sum + Number(sp.stok || 0), 0)
     const totalNilai = this.getTotalValue(list)
@@ -123,7 +100,7 @@ export const sparepartService = {
   },
 
   exportToCSV(items = []) {
-    const list = items.length > 0 ? items : getLocalAll()
+    const list = items
     const headers = ['Kode', 'Nama', 'Kategori', 'Merk', 'Supplier', 'Harga Beli', 'Harga Jual', 'Stok', 'Stok Min', 'Lokasi', 'Barcode', 'Satuan']
     const rows = list.map(sp => [
       sp.kode,
@@ -143,7 +120,7 @@ export const sparepartService = {
   },
 
   getStockByCategory(items = []) {
-    const list = items.length > 0 ? items : getLocalAll()
+    const list = items
     const categories = {}
     list.forEach(sp => {
       if (!categories[sp.kategori]) {
@@ -161,7 +138,7 @@ export const sparepartService = {
     return Object.values(categories)
   },
 
-  importFromCSV(csvText) {
+  async importFromCSV(csvText) {
     // Parse CSV sederhana (support quote untuk koma di dalam field)
     const lines = csvText.trim().split(/\r?\n/)
     if (lines.length < 2) {
@@ -262,25 +239,10 @@ export const sparepartService = {
         }
       })
 
-      // Cari supplier berdasarkan nama jika ada
-      if (mapped.supplierName && !mapped.supplierId) {
-        const suppliers = db.getAll('suppliers')
-        const found = suppliers.find(s => s.nama.toLowerCase() === mapped.supplierName.toLowerCase())
-        if (found) {
-          mapped.supplierId = found.id
-        }
-        delete mapped.supplierName
-      }
-
-      // Bikin kode otomatis jika kosong
-      if (!mapped.kode) {
-        mapped.kode = `SPR-${String(db.getSequence('spareparts')).padStart(3, '0')}`
-      }
-
       if (hasError) {
         errors.push({ row: i, message: errorMsg })
       } else {
-        const newItem = db.insert('spareparts', mapped)
+        const newItem = await db.insert('spareparts', mapped)
         imported.push(newItem)
       }
     }

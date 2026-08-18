@@ -15,7 +15,7 @@ import { sparepartService } from '../services/sparepartService'
 import { authService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
-import { LoadingScreen } from '../components/LoadingScreen'
+import { soundService } from '../services/soundService'
 
 const emptyForm = {
   kode: '',
@@ -34,13 +34,11 @@ function Supplier() {
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [sparepartCounts, setSparepartCounts] = useState({})
-  const [loading, setLoading] = useState(true)
 
   const currentUser = authService.getCurrentUser()
   const canCreate = rbacService.canCreateSparepart(currentUser?.role)
 
   const loadData = async () => {
-    setLoading(true)
     try {
       const [suppliersData, sparepartsData] = await Promise.all([
         supplierService.getAll(),
@@ -61,8 +59,6 @@ function Supplier() {
       toastService.error('Gagal memuat data supplier')
       setSuppliers([])
       setSparepartCounts({})
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -93,9 +89,11 @@ function Supplier() {
       if (editingId) {
         await supplierService.update(editingId, data)
         toastService.success(`Supplier "${form.nama}" berhasil diubah`)
+        soundService.edit()
       } else {
         await supplierService.create(data)
         toastService.success(`Supplier "${form.nama}" berhasil ditambahkan`)
+        soundService.add()
       }
 
       setShowModal(false)
@@ -105,6 +103,7 @@ function Supplier() {
     } catch (err) {
       setError(err.message)
       toastService.error(err.message)
+      soundService.error()
     }
   }
 
@@ -124,15 +123,18 @@ function Supplier() {
   const handleDelete = async (s) => {
     if (sparepartCounts[s.id] > 0) {
       toastService.warning(`Tidak dapat menghapus supplier "${s.nama}" karena masih memiliki ${sparepartCounts[s.id]} sparepart terkait.`)
+      soundService.warning()
       return
     }
     if (confirm(`Hapus supplier "${s.nama}"?`)) {
       try {
         await supplierService.delete(s.id)
         toastService.success(`Supplier "${s.nama}" berhasil dihapus`)
+        soundService.delete()
         loadData()
       } catch (err) {
         toastService.error(err.message)
+        soundService.error()
       }
     }
   }
@@ -142,13 +144,10 @@ function Supplier() {
     setForm(emptyForm)
     setError('')
     setShowModal(true)
+    soundService.click()
   }
 
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-
-  if (loading) {
-    return <LoadingScreen message="Memuat data supplier..." />
-  }
 
   return (
     <div className="space-y-6">

@@ -35,28 +35,20 @@ function Layout() {
     let isMounted = true
 
     const loadLowStock = async () => {
-      const spareparts = await sparepartService.getAll()
-      if (isMounted) {
-        setLowStockCount(sparepartService.getLowStock(spareparts).length)
+      try {
+        const spareparts = await sparepartService.getAll()
+        if (isMounted) {
+          setLowStockCount(sparepartService.getLowStock(spareparts || []).length)
+        }
+      } catch (error) {
+        console.error('Failed to load low stock count:', error)
       }
     }
 
     loadLowStock()
 
-    // Refresh low stock count saat localStorage berubah
-    const handleStorageChange = () => {
-      sparepartService.getAll().then(spareparts => {
-        if (isMounted) {
-          setLowStockCount(sparepartService.getLowStock(spareparts).length)
-        }
-      })
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-
     return () => {
       isMounted = false
-      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
 
@@ -68,8 +60,12 @@ function Layout() {
     })
   }
 
-  const handleLogout = () => {
-    authService.logout()
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch (error) {
+      console.warn('Logout error:', error)
+    }
     navigate('/login')
   }
 
@@ -92,7 +88,7 @@ function Layout() {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-[#1a0505] via-[#200606] to-[#120303] text-white transform transition-all duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-[#1a0505] via-[#200606] to-[#120303] text-white transform transition-all duration-300 lg:translate-x-0 ${
           sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'
         } ${
           sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
@@ -135,7 +131,7 @@ function Layout() {
           </button>
         </div>
 
-        <nav className={`relative mt-4 px-3 space-y-1 ${sidebarCollapsed ? 'lg:px-3' : ''}`}>
+<nav className={`mt-4 px-3 space-y-1 overflow-y-auto flex-1 ${sidebarCollapsed ? 'lg:px-3' : ''}`}>
           {!sidebarCollapsed && (
             <p className="px-4 py-2 text-[10px] font-semibold text-brand-300/70 uppercase tracking-widest hidden lg:block">
               Menu Utama
@@ -174,7 +170,7 @@ function Layout() {
           ))}
         </nav>
 
-        <div className={`absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border space-y-2 bg-gradient-to-r from-[#120303]/90 to-[#1a0505]/90 backdrop-blur-sm ${sidebarCollapsed ? 'lg:px-2 lg:flex lg:flex-col lg:items-center lg:space-y-2' : ''}`}>
+        <div className={`p-4 border-t border-sidebar-border space-y-2 bg-gradient-to-r from-[#120303]/90 to-[#1a0505]/90 backdrop-blur-sm ${sidebarCollapsed ? 'lg:px-2 lg:flex lg:flex-col lg:items-center lg:space-y-2' : ''}`}>
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? 'Logout' : undefined}

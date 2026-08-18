@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import { ToastContainer } from './components/ToastContainer'
-import { FullScreenLoader } from './components/LoadingScreen'
 import Dashboard from './pages/Dashboard'
 import Sparepart from './pages/Sparepart'
 import BarangMasuk from './pages/BarangMasuk'
@@ -37,18 +35,6 @@ function PermissionRoute({ permission, children }) {
 }
 
 function App() {
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Simulasi initial loading untuk memberikan pengalaman loading screen
-    const timer = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (loading) {
-    return <FullScreenLoader message="Menyiapkan aplikasi..." />
-  }
-
   return (
     <BrowserRouter>
       <ToastContainer />

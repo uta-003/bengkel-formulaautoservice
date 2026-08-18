@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SkeletonLoader as Skeleton } from '../components/Skeleton'
 import { Link } from 'react-router-dom'
 import {
   Package,
@@ -11,13 +12,13 @@ import {
   Boxes,
   PieChart,
   Gauge,
-  ScanBarcode
+  ScanBarcode,
+  RefreshCw
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
 import { supplierService } from '../services/supplierService'
 import { formatRupiah } from '../utils/format'
-import { LoadingScreen } from '../components/LoadingScreen'
 
 function Dashboard() {
   const [stats, setStats] = useState(null)
@@ -27,15 +28,18 @@ function Dashboard() {
   const [supplierCount, setSupplierCount] = useState(0)
   const [categoryStats, setCategoryStats] = useState([])
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let isMounted = true
 
     const loadData = async () => {
       try {
-        const [spareparts, suppliers] = await Promise.all([
+        const [spareparts, suppliers, transStatsData, recentTransData] = await Promise.all([
           sparepartService.getAll(),
-          supplierService.getAll()
+          supplierService.getAll(),
+          transactionService.getStats(),
+          transactionService.getRecentTransactions(5)
         ])
 
         if (!isMounted) return
@@ -44,13 +48,15 @@ function Dashboard() {
         setLowStock(sparepartService.getLowStock(spareparts))
         setCategoryStats(sparepartService.getStockByCategory(spareparts))
         setSupplierCount((suppliers || []).length)
-        setTransStats(transactionService.getStats())
-        setRecentTransactions(transactionService.getAll().slice(0, 5))
+        setTransStats(transStatsData)
+        setRecentTransactions(recentTransData)
       } catch (err) {
         if (isMounted) {
           setError(err.message)
           console.error('Dashboard error:', err)
         }
+      } finally {
+        if (isMounted) setIsLoading(false)
       }
     }
 
@@ -64,13 +70,48 @@ function Dashboard() {
   if (error && !stats) {
     return (
       <div className="text-center py-20">
-        <p className="text-red-500">Terjadi kesalahan: {error}</p>
+        <div className="max-w-md mx-auto">
+          <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Gagal Memuat Data</h2>
+          <p className="text-red-500 mb-2">{error}</p>
+          <p className="text-gray-500 text-sm mb-4">
+            Tidak dapat terhubung ke server. Periksa koneksi internet Anda dan coba lagi.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Muat Ulang
+          </button>
+        </div>
       </div>
     )
   }
 
-  if (!stats || !transStats) {
-    return <LoadingScreen message="Memuat dashboard..." />
+  if (isLoading || !stats || !transStats) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 p-6 sm:p-8">
+          <Skeleton className="h-8 w-48 bg-white/20" />
+          <Skeleton className="h-4 w-72 bg-white/20 mt-2" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+            <Skeleton key={i} className="h-28 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
+      </div>
+    )
   }
 
   const cards = [
