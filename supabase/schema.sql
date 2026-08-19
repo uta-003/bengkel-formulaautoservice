@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   username TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   nama TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'STAFF' CHECK (role IN ('ADMIN', 'STAFF')),
+  "role" TEXT NOT NULL DEFAULT 'STAFF' CHECK ("role" IN ('ADMIN', 'STAFF')),
   email TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -98,9 +98,9 @@ CREATE TABLE IF NOT EXISTS public.users (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.audit_log (
   id BIGSERIAL PRIMARY KEY,
-  timestamp TIMESTAMPTZ DEFAULT now(),
+  "timestamp" TIMESTAMPTZ DEFAULT now(),
   "user" TEXT,
-  role TEXT,
+  "role" TEXT,
   action TEXT NOT NULL,
   detail TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -121,7 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_tanggal ON public.stock_movements
 CREATE INDEX IF NOT EXISTS idx_scan_history_scanned_at ON public.scan_history (scanned_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scan_history_barcode ON public.scan_history (barcode);
 CREATE INDEX IF NOT EXISTS idx_users_username ON public.users (username);
-CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON public.audit_log (timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON public.audit_log ("timestamp" DESC);
 
 -- ============================================
 -- ROW LEVEL SECURITY
