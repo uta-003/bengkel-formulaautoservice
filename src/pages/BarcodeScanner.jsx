@@ -32,6 +32,7 @@ function BarcodeScanner() {
   const [cameraFacing, setCameraFacing] = useState('environment') // 'environment' = belakang, 'user' = depan
   const [allCameras, setAllCameras] = useState([])
   const [allSpareparts, setAllSpareparts] = useState([])
+  const isSecureContext = typeof window !== 'undefined' ? window.isSecureContext !== false : true
   const inputRef = useRef(null)
   const scannerRef = useRef(null)
   const html5QrCodeRef = useRef(null)
@@ -179,6 +180,13 @@ function BarcodeScanner() {
     setCameraLoading(true)
 
     try {
+      // Browser hanya mengizinkan akses kamera pada SECURE CONTEXT:
+      // HTTPS atau http://localhost (atau 127.0.0.1)
+      // Jika halaman dibuka via http:// (bukan localhost), kamera DIBLOKIR browser.
+      if (!window.isSecureContext) {
+        throw new Error('BROWSER_SECURITY')
+      }
+
       // Pastikan elemen scanner tersedia
       if (!scannerRef.current) {
         throw new Error('Elemen scanner tidak ditemukan')
@@ -186,6 +194,13 @@ function BarcodeScanner() {
 
       // Bersihkan elemen jika sudah ada scan area sebelumnya
       scannerRef.current.innerHTML = ''
+
+      // PENTING: html5-qrcode gagal jika elemen video hidden/display:none
+      // (tidak punya ukuran). Hapus class 'hidden' & aktifkan UI SEBELUM start().
+      scannerRef.current.classList.remove('hidden')
+      scannerRef.current.classList.add('block')
+      setIsCameraActive(true)
+      isCameraActiveRef.current = true
 
       const html5QrCode = new Html5Qrcode('barcode-scanner-area')
       html5QrCodeRef.current = html5QrCode
@@ -266,11 +281,21 @@ function BarcodeScanner() {
         html5QrCodeRef.current = null
       }
       isCameraActiveRef.current = false
-      setCameraError(
-        err.message === 'Tidak ada kamera yang terdeteksi'
-          ? 'Tidak ada kamera yang terdeteksi di perangkat ini'
-          : 'Gagal mengakses kamera. Pastikan izin kamera diberikan dan gunakan HTTPS atau localhost.'
-      )
+      setIsCameraActive(false)
+
+      if (err.message === 'BROWSER_SECURITY') {
+        setCameraError(
+          'Kamera hanya dapat diakses melalui HTTPS atau localhost. ' +
+          'Halaman ini sedang dibuka melalui HTTP biasa (bukan secure context), ' +
+          'sehingga browser memblokir akses kamera. Gunakan https:// atau http://localhost.'
+        )
+      } else {
+        setCameraError(
+          err.message === 'Tidak ada kamera yang terdeteksi'
+            ? 'Tidak ada kamera yang terdeteksi di perangkat ini'
+            : 'Gagal mengakses kamera. Pastikan izin kamera diberikan dan gunakan HTTPS atau localhost.'
+        )
+      }
       soundService.error()
     } finally {
       setCameraLoading(false)
@@ -375,7 +400,7 @@ function BarcodeScanner() {
               id="barcode-scanner-area"
               ref={scannerRef}
               className={`rounded-lg overflow-hidden bg-black transition-all ${
-                isCameraActive ? 'block' : 'hidden'
+                isCameraActive || cameraLoading ? 'block' : 'hidden'
               }`}
             />
             {isCameraActive && allCameras.length > 1 && (
@@ -570,7 +595,18 @@ function BarcodeScanner() {
               <li>• Arahkan kamera ke barcode sparepart</li>
               <li>• Scan akan terjadi otomatis saat barcode terdeteksi</li>
               <li>• Gunakan <span className="font-semibold">HTTPS</span> atau <span className="font-semibold">localhost</span> untuk akses kamera</li>
+              <li>• Jangan gunakan <span className="font-semibold">http://IP-LAN</span> (contoh: http://192.168.1.5) — browser memblokir kamera di HTTP non-localhost</li>
             </ul>
+            {!isSecureContext && (
+              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg">
+                <p className="font-medium">⚠️ Halaman ini bukan secure context</p>
+                <p className="text-xs mt-0.5">
+                  Kamera diblokir browser karena diakses melalui HTTP biasa.
+                  Gunakan <span className="font-semibold">https://</span> atau{' '}
+                  <span className="font-semibold">http://localhost</span>.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
