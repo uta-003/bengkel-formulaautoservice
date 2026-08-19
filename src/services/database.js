@@ -241,6 +241,26 @@ function isNetworkError(error) {
     error.name === 'TypeError'
 }
 
+// Deteksi error Supabase karena setup (tabel belum dibuat, permission denied, dll)
+// Error jenis ini tidak fatal -> fallback ke localStorage agar aplikasi tetap bisa dipakai
+function isSupabaseSetupError(error) {
+  if (!error) return false
+  const code = String(error.code || '')
+  const message = String(error.message || error).toLowerCase()
+  const details = String(error.details || '').toLowerCase()
+
+  return code.startsWith('PGRST') ||
+    message.includes('could not find the table') ||
+    message.includes('does not exist') ||
+    message.includes('permission denied') ||
+    message.includes('must be owner') ||
+    message.includes('new row violates') ||
+    message.includes('invalid input syntax') ||
+    message.includes('duplicate key') ||
+    details.includes('does not exist') ||
+    details.includes('permission denied')
+}
+
 // ---- Ambil data segar dari Supabase (tanpa cache) ----
 async function getDataFromSupabase(table) {
   const { data, error } = await supabase
@@ -280,11 +300,11 @@ async function getAll(table, options = {}) {
       shortCache.set(table, { data, timestamp: Date.now() })
       return data
     } catch (error) {
-      if (isNetworkError(error)) {
-        console.warn(`[DB] Network error saat mengambil ${table}, fallback ke localStorage:`, error.message)
-        setSupabaseUnavailable(error)
+      if (isNetworkError(error) || isSupabaseSetupError(error)) {
+        console.warn(`[DB] Error saat mengambil ${table}, fallback ke localStorage:`, error.message)
+        if (isNetworkError(error)) setSupabaseUnavailable(error)
       } else {
-        // Error Supabase lain (bukan network) - jangan fallback, ini harus diperbaiki
+        // Error Supabase lain (bukan network/setup) - jangan fallback, ini harus diperbaiki
         console.error(`[DB] Error mengambil ${table}:`, error)
         throw error
       }
@@ -315,8 +335,8 @@ async function getById(table, id) {
       return null
     } catch (error) {
       if (error.code === 'PGRST116') return null
-      if (isNetworkError(error)) {
-        setSupabaseUnavailable(error)
+      if (isNetworkError(error) || isSupabaseSetupError(error)) {
+        if (isNetworkError(error)) setSupabaseUnavailable(error)
       } else {
         console.warn(`[DB] Error getById ${table}/${id}:`, error)
         return null
@@ -345,11 +365,11 @@ async function insert(table, data) {
       notifyChange(table, 'insert', 'local')
       return mapFromDB(table, result)
     } catch (error) {
-      if (isNetworkError(error)) {
-        setSupabaseUnavailable(error)
+      if (isNetworkError(error) || isSupabaseSetupError(error)) {
+        if (isNetworkError(error)) setSupabaseUnavailable(error)
       } else {
         console.warn(`[DB] Error insert ke ${table}:`, error)
-        throw error // Jangan fallback jika Supabase error (bukan network)
+        throw error // Jangan fallback jika Supabase error (bukan network/setup)
       }
     }
   }
@@ -385,8 +405,8 @@ async function update(table, id, data) {
       notifyChange(table, 'update', 'local')
       return mapFromDB(table, result)
     } catch (error) {
-      if (isNetworkError(error)) {
-        setSupabaseUnavailable(error)
+      if (isNetworkError(error) || isSupabaseSetupError(error)) {
+        if (isNetworkError(error)) setSupabaseUnavailable(error)
       } else {
         console.warn(`[DB] Error update ${table}/${id}:`, error)
         throw error
@@ -418,8 +438,8 @@ async function remove(table, id) {
       notifyChange(table, 'remove', 'local')
       return true
     } catch (error) {
-      if (isNetworkError(error)) {
-        setSupabaseUnavailable(error)
+      if (isNetworkError(error) || isSupabaseSetupError(error)) {
+        if (isNetworkError(error)) setSupabaseUnavailable(error)
       } else {
         console.warn(`[DB] Error delete ${table}/${id}:`, error)
         throw error
@@ -457,8 +477,8 @@ async function findUserByUsername(username) {
       }
       return null
     } catch (error) {
-      if (isNetworkError(error)) {
-        setSupabaseUnavailable(error)
+      if (isNetworkError(error) || isSupabaseSetupError(error)) {
+        if (isNetworkError(error)) setSupabaseUnavailable(error)
       } else {
         console.warn(`[DB] Error findUserByUsername "${username}":`, error)
         return null
