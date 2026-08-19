@@ -7,6 +7,7 @@ import {
   ArrowDownToLine
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
+import { db } from '../services/database'
 import { toastService } from '../services/toastService'
 
 function LowStock() {
@@ -30,8 +31,19 @@ function LowStock() {
 
     loadData()
 
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable || changedTable === db.keys.SPAREPARTS) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
     return () => {
       isMounted = false
+      window.removeEventListener(db.changeEvent, handleDBChange)
     }
   }, [])
 

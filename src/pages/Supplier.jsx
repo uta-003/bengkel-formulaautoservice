@@ -15,6 +15,7 @@ import { sparepartService } from '../services/sparepartService'
 import { authService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
+import { db } from '../services/database'
 import { soundService } from '../services/soundService'
 
 const emptyForm = {
@@ -64,6 +65,20 @@ function Supplier() {
 
   useEffect(() => {
     loadData()
+
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable || changedTable === db.keys.SUPPLIERS || changedTable === db.keys.SPAREPARTS) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
+    return () => {
+      window.removeEventListener(db.changeEvent, handleDBChange)
+    }
   }, [])
 
   const filteredSuppliers = search

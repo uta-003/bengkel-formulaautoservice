@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
+import { db } from '../services/database'
 import { formatRupiah } from '../utils/format'
 
 function SparepartDetail({ sparepartId, onClose }) {
@@ -40,8 +41,21 @@ function SparepartDetail({ sparepartId, onClose }) {
 
     loadData()
 
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable ||
+          changedTable === db.keys.SPAREPARTS ||
+          changedTable === db.keys.TRANSACTIONS) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
     return () => {
       isMounted = false
+      window.removeEventListener(db.changeEvent, handleDBChange)
     }
   }, [sparepartId])
 

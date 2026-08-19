@@ -12,6 +12,7 @@ import {
 import { authService, auditService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { validators, validateForm } from '../services/validators'
+import { db } from '../services/database'
 import { toastService } from '../services/toastService'
 
 function Pengaturan() {
@@ -58,6 +59,20 @@ function Pengaturan() {
 
   useEffect(() => {
     loadData()
+
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable || changedTable === db.keys.USERS || changedTable === db.keys.AUDIT_LOG) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
+    return () => {
+      window.removeEventListener(db.changeEvent, handleDBChange)
+    }
   }, [])
 
   const handleSubmit = async (e) => {

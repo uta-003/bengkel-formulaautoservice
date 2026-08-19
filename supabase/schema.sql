@@ -142,3 +142,51 @@ CREATE POLICY "Allow all operations on stock_movements" ON public.stock_movement
 CREATE POLICY "Allow all operations on scan_history" ON public.scan_history FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on users" ON public.users FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on audit_log" ON public.audit_log FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================
+-- UPDATED_AT TRIGGER (auto-update timestamp)
+-- ============================================
+-- Tambahkan kolom updated_at jika belum ada
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+-- Trigger function untuk auto-update updated_at
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger untuk setiap tabel
+CREATE TRIGGER trigger_update_suppliers_updated_at BEFORE UPDATE ON public.suppliers FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trigger_update_spareparts_updated_at BEFORE UPDATE ON public.spareparts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trigger_update_transactions_updated_at BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trigger_update_stock_movements_updated_at BEFORE UPDATE ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trigger_update_scan_history_updated_at BEFORE UPDATE ON public.scan_history FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trigger_update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trigger_update_audit_log_updated_at BEFORE UPDATE ON public.audit_log FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- ============================================
+-- REALTIME PUBLICATION
+-- ============================================
+-- Aktifkan realtime untuk semua tabel agar perubahan data langsung terlihat di semua perangkat
+BEGIN;
+  -- Hapus publication lama jika ada (untuk idempotent)
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  -- Buat publication baru untuk semua tabel
+  CREATE PUBLICATION supabase_realtime FOR TABLE
+    public.suppliers,
+    public.spareparts,
+    public.transactions,
+    public.stock_movements,
+    public.scan_history,
+    public.users,
+    public.audit_log;
+COMMIT;

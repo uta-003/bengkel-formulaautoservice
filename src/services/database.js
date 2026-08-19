@@ -1,6 +1,7 @@
 // Database layer menggunakan Supabase sebagai sumber data utama
-// Tabel: spareparts, suppliers, transactions, stock_movements, users, audit_log
-// Fallback ke localStorage jika Supabase tidak tersedia
+// Tabel: spareparts, suppliers, transactions, stock_movements, users, scan_history, audit_log
+// Fallback ke localStorage jika Supabase tidak tersedia (offline mode)
+// Mendukung realtime sync: perubahan data dari perangkat lain langsung terlihat
 
 import { supabase } from './supabaseClient'
 
@@ -82,32 +83,6 @@ function mapToDB(table, data) {
   return result
 }
 
-// In-memory cache untuk mengurangi fetch berulang ke Supabase
-const cache = new Map()
-const CACHE_TTL = 10000 // 10 detik
-
-function getCached(table) {
-  const entry = cache.get(table)
-  if (!entry) return null
-  if (Date.now() - entry.timestamp > CACHE_TTL) {
-    cache.delete(table)
-    return null
-  }
-  return entry.data
-}
-
-function setCached(table, data) {
-  cache.set(table, { data, timestamp: Date.now() })
-}
-
-function clearCache(table) {
-  if (table) {
-    cache.delete(table)
-  } else {
-    cache.clear()
-  }
-}
-
 // Kunci untuk localStorage fallback
 const LS_PREFIX = 'app_'
 const LS_KEYS = {
@@ -120,19 +95,83 @@ const LS_KEYS = {
   [DB_KEYS.AUDIT_LOG]: `${LS_PREFIX}audit_log_data`
 }
 
+const PENDING_QUEUE_KEY = `${LS_PREFIX}pending_sync`
+const LS_SEQUENCE_KEY = `${LS_PREFIX}sequence`
+
 // Flag status koneksi Supabase
 let supabaseAvailable = true
 let lastSupabaseCheck = 0
-const SUPABASE_CHECK_INTERVAL = 30000 // 30 detik
+const SUPABASE_CHECK_INTERVAL = 10000 // 10 detik
 
-// Event yang dipancarkan setiap kali data berubah
+// Short cache hanya untuk anti-spam dalam 500ms - sangat pendek agar data selalu fresh
+const CACHE_SHORT_TTL = 500
+const shortCache = new Map()
+
+// Event yang dipancarkan setiap kali data berubah (termasuk dari realtime)
 const DB_CHANGE_EVENT = 'db-updated'
+const DB_SYNC_EVENT = 'db-sync-status'
 
-function notifyChange(table, operation) {
-  clearCache(table)
+function notifyChange(table, operation, source = 'local') {
   window.dispatchEvent(new CustomEvent(DB_CHANGE_EVENT, {
-    detail: { table, operation, timestamp: Date.now() }
+    detail: { table, operation, timestamp: Date.now(), source }
   }))
+}
+
+function notifySyncStatus(status) {
+  window.dispatchEvent(new CustomEvent(DB_SYNC_EVENT, {
+    detail: { status, timestamp: Date.now() }
+  }))
+}
+
+// ---- Realtime Subscriptions ----
+let realtimeChannels = []
+let realtimeEnabled = false
+
+function subscribeToTable(table) {
+  if (table === DB_KEYS.AUDIT_LOG) return // Skip audit untuk mengurangi noise
+  try {
+    const channel = supabase
+      .channel(`realtime-${table}-${Date.now()}-${Math.random()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+        const { eventType } = payload
+        console.log(`[Realtime] ${table} ${eventType}`)
+        const operation = eventType === 'INSERT' ? 'insert'
+          : eventType === 'UPDATE' ? 'update'
+          : 'remove'
+        notifyChange(table, operation, 'realtime')
+      })
+      .subscribe((status) => {
+        console.log(`[Realtime] Subscribed to ${table}: ${status}`)
+      })
+    realtimeChannels.push(channel)
+  } catch (error) {
+    console.warn(`Gagal subscribe realtime untuk ${table}:`, error)
+  }
+}
+
+function initRealtime() {
+  if (realtimeEnabled) return
+  realtimeEnabled = true
+  const tables = [
+    DB_KEYS.SPAREPARTS,
+    DB_KEYS.SUPPLIERS,
+    DB_KEYS.TRANSACTIONS,
+    DB_KEYS.STOCK_MOVEMENTS,
+    DB_KEYS.SCAN_HISTORY,
+    DB_KEYS.USERS
+  ]
+  tables.forEach(subscribeToTable)
+  console.log('[Realtime] Subscribed to all tables')
+}
+
+function removeAllRealtime() {
+  if (realtimeChannels.length > 0) {
+    realtimeChannels.forEach(ch => {
+      supabase.removeChannel(ch).catch(() => {})
+    })
+    realtimeChannels = []
+  }
+  realtimeEnabled = false
 }
 
 // ---- Helper untuk localStorage fallback ----
@@ -161,11 +200,9 @@ function getNextLocalId(table) {
   const maxId = data.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0)
   const nextId = maxId + 1
 
-  // Simpan ID berikutnya untuk konsistensi
-  const seqKey = `${LS_PREFIX}sequence`
-  const seq = JSON.parse(localStorage.getItem(seqKey) || '{}')
+  const seq = JSON.parse(localStorage.getItem(LS_SEQUENCE_KEY) || '{}')
   seq[table] = nextId
-  localStorage.setItem(seqKey, JSON.stringify(seq))
+  localStorage.setItem(LS_SEQUENCE_KEY, JSON.stringify(seq))
 
   return nextId
 }
@@ -174,12 +211,14 @@ function getNextLocalId(table) {
 function setSupabaseUnavailable(error) {
   supabaseAvailable = false
   lastSupabaseCheck = Date.now()
-  console.warn('Supabase tidak tersedia, beralih ke mode localStorage:', error?.message || error)
+  console.warn('Supabase tidak tersedia, beralih ke mode offline:', error?.message || error)
+  notifySyncStatus('offline')
 }
 
 function setSupabaseAvailable() {
   supabaseAvailable = true
   lastSupabaseCheck = Date.now()
+  notifySyncStatus('online')
 }
 
 function isSupabaseUsable() {
@@ -188,7 +227,6 @@ function isSupabaseUsable() {
   return Date.now() - lastSupabaseCheck > SUPABASE_CHECK_INTERVAL
 }
 
-// Cek apakah error adalah "Failed to fetch" (network error) atau error Supabase lain
 function isNetworkError(error) {
   if (!error) return false
   const message = String(error.message || error).toLowerCase()
@@ -203,42 +241,60 @@ function isNetworkError(error) {
     error.name === 'TypeError'
 }
 
-// ---- Generic CRUD operations ----
-async function getAll(table) {
-  // Cek cache dulu
-  const cached = getCached(table)
-  if (cached) return cached
+// ---- Ambil data segar dari Supabase (tanpa cache) ----
+async function getDataFromSupabase(table) {
+  const { data, error } = await supabase
+    .from(table)
+    .select('*')
+    .order('id', { ascending: true })
 
-  // Coba Supabase dulu jika dianggap tersedia
-  if (isSupabaseUsable()) {
-    try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('id', { ascending: true })
-      if (error) throw error
-      if (data) {
-        setSupabaseAvailable()
-        // Konversi dari snake_case ke camelCase
-        const mappedData = data.map(item => mapFromDB(table, item))
-        // Simpan ke localStorage sebagai cache
-        saveLocalData(table, mappedData)
-        // Simpan ke in-memory cache
-        setCached(table, mappedData)
-        return mappedData
-      }
-    } catch (error) {
-      if (isNetworkError(error)) {
-        console.warn(`Network error saat mengambil ${table}:`, error.message)
-      }
-      setSupabaseUnavailable(error)
+  if (error) throw error
+
+  // Konversi dari snake_case ke camelCase
+  const mappedData = (data || []).map(item => mapFromDB(table, item))
+
+  // Simpan ke localStorage sebagai cache offline
+  saveLocalData(table, mappedData)
+
+  return mappedData
+}
+
+// ---- Generic CRUD operations ----
+
+// getAll: SELALU ambil dari Supabase (hanya anti-spam 500ms, bukan cache penuh)
+async function getAll(table, options = {}) {
+  const { forceRefresh = false } = options
+
+  // Hanya anti-spam: jika request yang sama dilakukan dalam 500ms, gunakan cache
+  if (!forceRefresh) {
+    const cached = shortCache.get(table)
+    if (cached && Date.now() - cached.timestamp < CACHE_SHORT_TTL) {
+      return cached.data
     }
   }
 
-  // Fallback ke localStorage
-  console.info(`Menggunakan data ${table} dari localStorage (mode offline)`)
+  if (isSupabaseUsable()) {
+    try {
+      const data = await getDataFromSupabase(table)
+      setSupabaseAvailable()
+      shortCache.set(table, { data, timestamp: Date.now() })
+      return data
+    } catch (error) {
+      if (isNetworkError(error)) {
+        console.warn(`[DB] Network error saat mengambil ${table}, fallback ke localStorage:`, error.message)
+        setSupabaseUnavailable(error)
+      } else {
+        // Error Supabase lain (bukan network) - jangan fallback, ini harus diperbaiki
+        console.error(`[DB] Error mengambil ${table}:`, error)
+        throw error
+      }
+    }
+  }
+
+  // Fallback ke localStorage (mode offline)
+  console.info(`[DB] Menggunakan data ${table} dari localStorage (mode offline)`)
   const localData = getLocalData(table)
-  setCached(table, localData)
+  shortCache.set(table, { data: localData, timestamp: Date.now() })
   return localData
 }
 
@@ -250,16 +306,21 @@ async function getById(table, id) {
         .from(table)
         .select('*')
         .eq('id', id)
-        .single()
-      if (error) {
-        if (error.code === 'PGRST116') return null // not found
-        throw error
+        .maybeSingle()
+      if (error) throw error
+      if (data) {
+        setSupabaseAvailable()
+        return mapFromDB(table, data)
       }
-      setSupabaseAvailable()
-      return mapFromDB(table, data)
+      return null
     } catch (error) {
       if (error.code === 'PGRST116') return null
-      setSupabaseUnavailable(error)
+      if (isNetworkError(error)) {
+        setSupabaseUnavailable(error)
+      } else {
+        console.warn(`[DB] Error getById ${table}/${id}:`, error)
+        return null
+      }
     }
   }
 
@@ -272,7 +333,6 @@ async function insert(table, data) {
   // Coba Supabase
   if (isSupabaseUsable()) {
     try {
-      // Konversi dari camelCase ke snake_case untuk Supabase
       const dbData = mapToDB(table, data)
       const { data: result, error } = await supabase
         .from(table)
@@ -281,14 +341,20 @@ async function insert(table, data) {
         .single()
       if (error) throw error
       setSupabaseAvailable()
-      notifyChange(table, 'insert')
+      shortCache.delete(table)
+      notifyChange(table, 'insert', 'local')
       return mapFromDB(table, result)
     } catch (error) {
-      setSupabaseUnavailable(error)
+      if (isNetworkError(error)) {
+        setSupabaseUnavailable(error)
+      } else {
+        console.warn(`[DB] Error insert ke ${table}:`, error)
+        throw error // Jangan fallback jika Supabase error (bukan network)
+      }
     }
   }
 
-  // Fallback localStorage
+  // Fallback localStorage (mode offline) + queue untuk sync
   const allData = getLocalData(table)
   const newItem = {
     ...data,
@@ -297,43 +363,49 @@ async function insert(table, data) {
   }
   allData.push(newItem)
   saveLocalData(table, allData)
-  notifyChange(table, 'insert')
+  queuePendingOperation(table, 'insert', newItem)
+  notifyChange(table, 'insert', 'local')
   return newItem
 }
 
 async function update(table, id, data) {
-  // Coba Supabase
   if (isSupabaseUsable()) {
     try {
-      // Konversi dari camelCase ke snake_case untuk Supabase
       const dbData = mapToDB(table, data)
       const { data: result, error } = await supabase
         .from(table)
         .update(dbData)
         .eq('id', id)
         .select()
-        .single()
+        .maybeSingle()
       if (error) throw error
+      if (!result) throw new Error('Data tidak ditemukan di Supabase')
       setSupabaseAvailable()
-      notifyChange(table, 'update')
+      shortCache.delete(table)
+      notifyChange(table, 'update', 'local')
       return mapFromDB(table, result)
     } catch (error) {
-      setSupabaseUnavailable(error)
+      if (isNetworkError(error)) {
+        setSupabaseUnavailable(error)
+      } else {
+        console.warn(`[DB] Error update ${table}/${id}:`, error)
+        throw error
+      }
     }
   }
 
-  // Fallback localStorage
+  // Fallback localStorage + simpan untuk sync
   const allData = getLocalData(table)
   const index = allData.findIndex(item => Number(item.id) === Number(id))
   if (index === -1) throw new Error('Data tidak ditemukan')
   allData[index] = { ...allData[index], ...data, id: Number(id) }
   saveLocalData(table, allData)
-  notifyChange(table, 'update')
+  queuePendingOperation(table, 'update', { id: Number(id), ...data })
+  notifyChange(table, 'update', 'local')
   return allData[index]
 }
 
 async function remove(table, id) {
-  // Coba Supabase
   if (isSupabaseUsable()) {
     try {
       const { error } = await supabase
@@ -342,10 +414,16 @@ async function remove(table, id) {
         .eq('id', id)
       if (error) throw error
       setSupabaseAvailable()
-      notifyChange(table, 'remove')
+      shortCache.delete(table)
+      notifyChange(table, 'remove', 'local')
       return true
     } catch (error) {
-      setSupabaseUnavailable(error)
+      if (isNetworkError(error)) {
+        setSupabaseUnavailable(error)
+      } else {
+        console.warn(`[DB] Error delete ${table}/${id}:`, error)
+        throw error
+      }
     }
   }
 
@@ -353,7 +431,8 @@ async function remove(table, id) {
   const allData = getLocalData(table)
   const filtered = allData.filter(item => Number(item.id) !== Number(id))
   saveLocalData(table, filtered)
-  notifyChange(table, 'remove')
+  queuePendingOperation(table, 'remove', { id: Number(id) })
+  notifyChange(table, 'remove', 'local')
   return true
 }
 
@@ -376,14 +455,82 @@ async function findUserByUsername(username) {
         setSupabaseAvailable()
         return mapFromDB(DB_KEYS.USERS, data)
       }
+      return null
     } catch (error) {
-      setSupabaseUnavailable(error)
+      if (isNetworkError(error)) {
+        setSupabaseUnavailable(error)
+      } else {
+        console.warn(`[DB] Error findUserByUsername "${username}":`, error)
+        return null
+      }
     }
   }
 
   // Fallback localStorage
   const users = getLocalData(DB_KEYS.USERS)
   return users.find(u => u.username === username) || null
+}
+
+// ---- Pending sync (offline -> online) ----
+function getPendingOps() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function setPendingOps(ops) {
+  try {
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(ops.slice(-100)))
+  } catch (e) {
+    console.warn('[DB] Gagal menyimpan antrian pending sync:', e)
+  }
+}
+
+function queuePendingOperation(table, operation, data) {
+  const ops = getPendingOps()
+  ops.push({
+    table,
+    operation,
+    data,
+    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `pending_${Date.now()}_${Math.random()}`,
+    created_at: new Date().toISOString()
+  })
+  setPendingOps(ops)
+}
+
+// Jalankan operasi pending saat koneksi pulih
+async function flushPendingOps() {
+  const ops = getPendingOps()
+  if (ops.length === 0) return
+
+  if (!isSupabaseUsable()) return
+
+  console.log(`[Sync] Mengirim ${ops.length} operasi pending ke Supabase...`)
+
+  for (const op of ops) {
+    try {
+      if (op.operation === 'insert') {
+        await supabase.from(op.table).insert(mapToDB(op.table, op.data))
+      } else if (op.operation === 'update') {
+        await supabase.from(op.table).update(mapToDB(op.table, op.data)).eq('id', op.data.id)
+      } else if (op.operation === 'remove' || op.operation === 'delete') {
+        await supabase.from(op.table).delete().eq('id', op.data.id)
+      }
+      // Sukses, hapus dari queue
+      const remaining = getPendingOps()
+      const filtered = remaining.filter(item => item.id !== op.id)
+      setPendingOps(filtered)
+    } catch (error) {
+      console.warn(`[Sync] Gagal mengirim op ${op.table}/${op.operation}:`, error)
+      return // Berhenti jika gagal, akan dicoba lagi nanti
+    }
+  }
+
+  // Broadcast bahwa sync selesai
+  notifySyncStatus('synced')
+  window.dispatchEvent(new CustomEvent('app-sync-complete', { detail: { timestamp: Date.now() } }))
 }
 
 export const db = {
@@ -395,7 +542,13 @@ export const db = {
   remove,
   getAllUsers,
   findUserByUsername,
-  clearCache,
+  clearCache: () => shortCache.clear(),
   changeEvent: DB_CHANGE_EVENT,
-  isSupabaseAvailable: () => supabaseAvailable
+  syncEvent: DB_SYNC_EVENT,
+  isSupabaseAvailable: () => supabaseAvailable,
+  initRealtime,
+  removeAllRealtime,
+  flushPendingOps,
+  getPendingOps,
+  setPendingOps
 }

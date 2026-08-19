@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
+import { db } from '../services/database'
 import { toastService } from '../services/toastService'
 import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
@@ -107,6 +108,23 @@ function Laporan() {
 
   useEffect(() => {
     loadData()
+
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable ||
+          changedTable === db.keys.SPAREPARTS ||
+          changedTable === db.keys.TRANSACTIONS ||
+          changedTable === db.keys.STOCK_MOVEMENTS) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
+    return () => {
+      window.removeEventListener(db.changeEvent, handleDBChange)
+    }
   }, [loadData])
 
   if (isLoading || !stats || !transStats || !periodStats || !reportData) {

@@ -18,9 +18,10 @@ function buildMaps(spareparts, suppliers) {
 }
 
 // Cache untuk data yang sudah di-join (transaksi + sparepart + supplier)
+// TTL sangat pendek (500ms) hanya untuk anti-spam, data tetap selalu fresh dari Supabase
 let joinedCache = null
 let joinedCacheTimestamp = 0
-const JOINED_CACHE_TTL = 5000 // 5 detik
+const JOINED_CACHE_TTL = 500 // 0.5 detik - cukup untuk anti-spam, tetap real-time
 
 export const transactionService = {
   // Barang Masuk (Stock In)
@@ -117,8 +118,9 @@ export const transactionService = {
   },
 
   // Muat semua data sekaligus dengan join efisien menggunakan Map
+  // Cache hanya 500ms untuk anti-spam, data tetap real-time
   async getAll() {
-    // Cek cache joined
+    // Cek cache joined (hanya 500ms)
     if (joinedCache && Date.now() - joinedCacheTimestamp < JOINED_CACHE_TTL) {
       return joinedCache
     }

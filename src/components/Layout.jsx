@@ -3,6 +3,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { sparepartService } from '../services/sparepartService'
 import { authService } from '../services/authService'
 import { rbacService, Permissions } from '../services/rbacService'
+import { db } from '../services/database'
+import { useSyncStatus } from '../hooks/useRealtimeSync'
 import {
   LayoutDashboard,
   Package,
@@ -31,6 +33,14 @@ function Layout() {
   const [lowStockCount, setLowStockCount] = useState(0)
   const currentUser = authService.getCurrentUser()
 
+  // Inisialisasi realtime subscription ke Supabase
+  useEffect(() => {
+    db.initRealtime()
+    return () => {
+      // Jangan remove realtime saat komponen unmount - tetap aktif selama aplikasi berjalan
+    }
+  }, [])
+
   useEffect(() => {
     let isMounted = true
 
@@ -47,8 +57,19 @@ function Layout() {
 
     loadLowStock()
 
+    // Refresh low stock count saat ada perubahan data dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable || changedTable === db.keys.SPAREPARTS) {
+        loadLowStock()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
     return () => {
       isMounted = false
+      window.removeEventListener(db.changeEvent, handleDBChange)
     }
   }, [])
 

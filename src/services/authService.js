@@ -1,4 +1,5 @@
 import { db } from './database'
+import { supabase } from './supabaseClient'
 
 // Kunci untuk penyimpanan di localStorage (fallback)
 const SESSION_KEY = 'app_session'
@@ -23,6 +24,7 @@ function verifyPassword(password, hashed) {
 }
 
 // Inisialisasi default users ke Supabase jika belum ada
+// Menggunakan upsert untuk menghindari conflict ketika 2 device sama-sama inisialisasi
 async function initAuthDB() {
   try {
     const users = await db.getAll(db.keys.USERS)
@@ -46,8 +48,29 @@ async function initAuthDB() {
           createdAt: new Date().toISOString()
         }
       ]
-      for (const user of defaultUsers) {
-        await db.insert(db.keys.USERS, user)
+      // Gunakan upsert langsung ke Supabase untuk menghindari race condition
+      // (jika 2 device sama-sama menginisialisasi)
+      const dbUsers = defaultUsers.map(u => ({
+        username: u.username,
+        password: u.password,
+        nama: u.nama,
+        role: u.role,
+        email: u.email,
+        created_at: u.createdAt
+      }))
+      const { error } = await supabase
+        .from(db.keys.USERS)
+        .upsert(dbUsers, { onConflict: 'username' })
+      if (error) {
+        console.warn('Gagal upsert default users:', error)
+        // Fallback: coba insert satu per satu
+        for (const user of defaultUsers) {
+          try {
+            await db.insert(db.keys.USERS, user)
+          } catch (e) {
+            // Mungkin sudah ada, lewati
+          }
+        }
       }
     }
   } catch (error) {

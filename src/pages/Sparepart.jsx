@@ -18,6 +18,7 @@ import { supplierService } from '../services/supplierService'
 import { authService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
+import { db } from '../services/database'
 import SparepartDetail from '../components/SparepartDetail'
 import { formatRupiah } from '../utils/format'
 import { generateBarcode, generateKodeSparepart } from '../utils/barcode'
@@ -74,6 +75,20 @@ function Sparepart() {
 
   useEffect(() => {
     loadData()
+
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable || changedTable === db.keys.SPAREPARTS || changedTable === db.keys.SUPPLIERS) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
+    return () => {
+      window.removeEventListener(db.changeEvent, handleDBChange)
+    }
   }, [])
 
   const categories = sparepartService.getCategories(spareparts)

@@ -16,6 +16,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { sparepartService } from '../services/sparepartService'
 import { scanHistoryService } from '../services/scanHistoryService'
 import { toastService } from '../services/toastService'
+import { db } from '../services/database'
 import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
 
@@ -28,6 +29,8 @@ function BarcodeScanner() {
   const [isCameraActive, setIsCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState('')
   const [cameraLoading, setCameraLoading] = useState(false)
+  const [cameraFacing, setCameraFacing] = useState('environment') // 'environment' = belakang, 'user' = depan
+  const [allCameras, setAllCameras] = useState([])
   const [allSpareparts, setAllSpareparts] = useState([])
   const inputRef = useRef(null)
   const scannerRef = useRef(null)
@@ -35,6 +38,7 @@ function BarcodeScanner() {
   const lastScannedRef = useRef('')
   const lastScanTimeRef = useRef(0)
   const isCameraActiveRef = useRef(false)
+  const cameraFacingRef = useRef('environment')
 
   useEffect(() => {
     let isMounted = true
@@ -57,8 +61,19 @@ function BarcodeScanner() {
 
     loadData()
 
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable || changedTable === db.keys.SPAREPARTS || changedTable === db.keys.SCAN_HISTORY) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
     return () => {
       isMounted = false
+      window.removeEventListener(db.changeEvent, handleDBChange)
     }
   }, [])
 
@@ -175,25 +190,59 @@ function BarcodeScanner() {
       const html5QrCode = new Html5Qrcode('barcode-scanner-area')
       html5QrCodeRef.current = html5QrCode
 
-      const cameras = await Html5Qrcode.getCameras()
-      if (!cameras || cameras.length === 0) {
-        throw new Error('Tidak ada kamera yang terdeteksi')
+      const facing = cameraFacingRef.current || 'environment'
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      const config = {
+        fps: 10,
+        qrbox: { width: isMobile ? 280 : 250, height: isMobile ? 280 : 250 },
+        aspectRatio: 1.0
       }
 
-      // Pilih kamera belakang jika ada (biasanya index terakhir atau id dengan 'back')
-      const backCamera = cameras.find(c =>
-        c.label.toLowerCase().includes('back') ||
-        c.label.toLowerCase().includes('belakang') ||
-        c.label.toLowerCase().includes('environment')
-      ) || cameras[cameras.length - 1]
+      let cameraArgs
+      if (isMobile) {
+        // Untuk handphone: gunakan facingMode langsung (paling kompatibel)
+        // Tidak perlu getCameras() yang bisa gagal di beberapa browser mobile
+        cameraArgs = { facingMode: facing }
+      } else {
+        // Untuk desktop: coba dapatkan daftar kamera
+        let cameras = []
+        try {
+          cameras = await Html5Qrcode.getCameras()
+        } catch (e) {
+          console.warn('Gagal mendapatkan daftar kamera:', e)
+        }
+
+        if (cameras && cameras.length > 0) {
+          setAllCameras(cameras)
+          // Pilih kamera berdasarkan label
+          let selectedCamera = null
+          if (facing === 'environment') {
+            // Kamera belakang: cari label yang mengandung 'back', 'belakang', 'environment', atau 'rear'
+            selectedCamera = cameras.find(c =>
+              c.label.toLowerCase().includes('back') ||
+              c.label.toLowerCase().includes('belakang') ||
+              c.label.toLowerCase().includes('environment') ||
+              c.label.toLowerCase().includes('rear')
+            ) || cameras[cameras.length - 1] // Fallback: kamera terakhir biasanya belakang
+          } else {
+            // Kamera depan: cari label yang mengandung 'front', 'depan', 'user', atau 'selfie'
+            selectedCamera = cameras.find(c =>
+              c.label.toLowerCase().includes('front') ||
+              c.label.toLowerCase().includes('depan') ||
+              c.label.toLowerCase().includes('user') ||
+              c.label.toLowerCase().includes('selfie')
+            ) || cameras[0] // Fallback: kamera pertama
+          }
+          cameraArgs = selectedCamera ? selectedCamera.id : { facingMode: facing }
+        } else {
+          // Fallback: gunakan facingMode jika tidak ada daftar kamera
+          cameraArgs = { facingMode: facing }
+        }
+      }
 
       await html5QrCode.start(
-        backCamera.id,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0
-        },
+        cameraArgs,
+        config,
         (decodedText) => {
           // Sukses scan
           processBarcode(decodedText)
@@ -252,6 +301,20 @@ function BarcodeScanner() {
     if (isCameraActive) {
       await stopCamera()
     } else {
+      await startCamera()
+    }
+  }
+
+  // Ganti kamera depan/belakang
+  const handleSwitchCamera = async () => {
+    soundService.click()
+    const newFacing = cameraFacingRef.current === 'environment' ? 'user' : 'environment'
+    cameraFacingRef.current = newFacing
+    setCameraFacing(newFacing)
+
+    // Jika kamera sedang aktif, restart dengan kamera baru
+    if (isCameraActive) {
+      await stopCamera()
       await startCamera()
     }
   }
@@ -315,6 +378,15 @@ function BarcodeScanner() {
                 isCameraActive ? 'block' : 'hidden'
               }`}
             />
+            {isCameraActive && allCameras.length > 1 && (
+              <button
+                onClick={handleSwitchCamera}
+                className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+              >
+                <Camera className="w-4 h-4" />
+                Ganti ke Kamera {cameraFacing === 'environment' ? 'Depan' : 'Belakang'}
+              </button>
+            )}
             {cameraError && (
               <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 <CameraOff className="w-4 h-4 shrink-0" />

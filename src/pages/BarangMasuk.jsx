@@ -12,6 +12,7 @@ import { supplierService } from '../services/supplierService'
 import { authService } from '../services/authService'
 import { rbacService } from '../services/rbacService'
 import { toastService } from '../services/toastService'
+import { db } from '../services/database'
 import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
 
@@ -57,6 +58,23 @@ function BarangMasuk() {
 
   useEffect(() => {
     loadData()
+
+    // Listen untuk perubahan data realtime dari perangkat lain
+    const handleDBChange = (e) => {
+      const { table: changedTable } = e.detail || {}
+      if (!changedTable ||
+          changedTable === db.keys.SPAREPARTS ||
+          changedTable === db.keys.SUPPLIERS ||
+          changedTable === db.keys.TRANSACTIONS) {
+        loadData()
+      }
+    }
+
+    window.addEventListener(db.changeEvent, handleDBChange)
+
+    return () => {
+      window.removeEventListener(db.changeEvent, handleDBChange)
+    }
   }, [])
 
   const filteredSpareparts = search
