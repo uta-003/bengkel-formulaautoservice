@@ -149,6 +149,8 @@ function subscribeToTable(table) {
   }
 }
 
+let syncInterval = null
+
 function initRealtime() {
   if (realtimeEnabled) return
   realtimeEnabled = true
@@ -161,7 +163,29 @@ function initRealtime() {
     DB_KEYS.USERS
   ]
   tables.forEach(subscribeToTable)
+
+  // Auto-flush pending ops setiap 15 detik
+  syncInterval = setInterval(() => {
+    flushPendingOps()
+  }, 15000)
+
+  // Flush saat tab kembali visible dan saat online
+  window.addEventListener('online', handleOnline)
+  document.addEventListener('visibilitychange', handleVisibilitySync)
+
   console.log('[Realtime] Subscribed to all tables')
+}
+
+function handleOnline() {
+  console.log('[Sync] Koneksi pulih, mengirim pending ops...')
+  flushPendingOps()
+}
+
+function handleVisibilitySync() {
+  if (document.visibilityState === 'visible') {
+    // Refresh data dan flush pending saat kembali ke tab
+    flushPendingOps()
+  }
 }
 
 function removeAllRealtime() {
@@ -172,6 +196,13 @@ function removeAllRealtime() {
     realtimeChannels = []
   }
   realtimeEnabled = false
+
+  if (syncInterval) {
+    clearInterval(syncInterval)
+    syncInterval = null
+  }
+  window.removeEventListener('online', handleOnline)
+  document.removeEventListener('visibilitychange', handleVisibilitySync)
 }
 
 // ---- Helper untuk localStorage fallback ----

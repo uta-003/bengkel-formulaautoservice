@@ -199,6 +199,157 @@
   pointer-events: none;
 }
 
+/* ===== Barcode Label Print Styles ===== */
+.label-print {
+  width: 76mm;
+  min-height: 40mm;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .label-print,
+  .label-print * {
+    visibility: visible;
+  }
+  .label-print {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 76mm;
+    min-height: 40mm;
+    padding: 4mm;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+  }
+  .print-labels-grid {
+    display: block !important;
+  }
+  @page {
+    size: 58mm auto;
+    margin: 5mm;
+  }
+}
+
+/* Grid untuk multi-label barcode */
+.labels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .labels-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* Scanner overlay scanline animation */
+@keyframes scanline {
+  0% { top: 0%; }
+  50% { top: 92%; }
+  100% { top: 0%; }
+}
+
+.scanline-animation::after {
+  content: '';
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  height: 3px;
+  background: linear-gradient(to right, transparent, #22c55e, transparent);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+  animation: scanline 2.4s ease-in-out infinite;
+  border-radius: 9999px;
+}
+
+/* ===== Responsive Mobile Enhancements ===== */
+
+/* Hide scrollbar for horizontal scroll areas */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile bottom navigation safe area */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Card view for mobile tables - hidden on desktop */
+.mobile-card-view {
+  display: none;
+}
+
+/* Desktop table view - hidden on mobile */
+.desktop-table-view {
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .mobile-card-view {
+    display: block;
+  }
+  .desktop-table-view {
+    display: none;
+  }
+}
+
+/* Mobile action buttons - full width stack */
+@media (max-width: 640px) {
+  .mobile-stack-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  .mobile-stack-buttons > * {
+    width: 100%;
+  }
+}
+
+/* Touch-friendly tap targets on mobile */
+@media (max-width: 767px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Prevent text overflow on mobile */
+@media (max-width: 640px) {
+  .truncate-mobile {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Responsive table wrapper - better mobile UX */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modal responsive for mobile */
+@media (max-width: 640px) {
+  .modal-mobile {
+    margin: 0;
+    max-height: 92vh;
+    border-radius: 1rem 1rem 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* Responsive adjustments */
 @media (prefers-reduced-motion: reduce) {
   .animate-blob,

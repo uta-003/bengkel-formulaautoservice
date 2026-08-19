@@ -186,18 +186,18 @@ function Pengaturan() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Pengaturan</h1>
-        <p className="text-gray-500 mt-1">Manajemen pengguna dan audit trail</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Pengaturan</h1>
+        <p className="text-gray-500 mt-1 text-sm sm:text-base">Manajemen pengguna dan audit trail</p>
       </div>
 
       {/* Manajemen Pengguna */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-gray-400" />
-            <h2 className="text-lg font-semibold text-gray-800">Manajemen Pengguna</h2>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="w-5 h-5 text-gray-400 shrink-0" />
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800">Manajemen Pengguna</h2>
           </div>
           <button
             onClick={() => {
@@ -206,13 +206,14 @@ function Pengaturan() {
               setError('')
               setShowModal(true)
             }}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25 text-sm"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25 text-sm shrink-0"
           >
             <Plus className="w-4 h-4" />
-            Tambah Pengguna
+            <span className="hidden sm:inline">Tambah Pengguna</span>
+            <span className="sm:hidden">Tambah</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -248,14 +249,14 @@ function Pengaturan() {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => handleEdit(user)}
-                          className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                          className="p-1.5 sm:p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors touch-target"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(user)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target"
                           title="Hapus"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -272,20 +273,21 @@ function Pengaturan() {
 
       {/* Audit Trail */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-gray-400" />
-            <h2 className="text-lg font-semibold text-gray-800">Audit Trail</h2>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <History className="w-5 h-5 text-gray-400 shrink-0" />
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800">Audit Trail</h2>
           </div>
           <button
             onClick={handleClearLogs}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm shrink-0"
           >
             <Trash2 className="w-4 h-4" />
-            Bersihkan Log
+            <span className="hidden sm:inline">Bersihkan Log</span>
+            <span className="sm:hidden">Hapus</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -327,9 +329,9 @@ function Pengaturan() {
 
       {/* Modal Tambah/Edit Pengguna */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto modal-mobile">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 {editingId ? 'Edit Pengguna' : 'Tambah Pengguna'}

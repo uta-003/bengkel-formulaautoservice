@@ -10,15 +10,21 @@ import {
   ArrowUpFromLine,
   Camera,
   CameraOff,
-  Loader2
+  Loader2,
+  RefreshCw,
+  SunMedium,
+  Printer,
+  X
 } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
+import { MultiFormatReader } from '@zxing/library'
 import { sparepartService } from '../services/sparepartService'
 import { scanHistoryService } from '../services/scanHistoryService'
 import { toastService } from '../services/toastService'
 import { db } from '../services/database'
 import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
+import BarcodeLabel from '../components/BarcodeLabel'
 
 function BarcodeScanner() {
   const [barcodeInput, setBarcodeInput] = useState('')
@@ -29,17 +35,25 @@ function BarcodeScanner() {
   const [isCameraActive, setIsCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState('')
   const [cameraLoading, setCameraLoading] = useState(false)
-  const [cameraFacing, setCameraFacing] = useState('environment') // 'environment' = belakang, 'user' = depan
+  const [cameraFacing, setCameraFacing] = useState('environment')
+  const [isTorchOn, setIsTorchOn] = useState(false)
   const [allCameras, setAllCameras] = useState([])
   const [allSpareparts, setAllSpareparts] = useState([])
+  const [selectedForPrint, setSelectedForPrint] = useState(null)
+  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [engineMode, setEngineMode] = useState('auto') // 'auto' | 'html5' | 'zxing'
   const isSecureContext = typeof window !== 'undefined' ? window.isSecureContext !== false : true
   const inputRef = useRef(null)
   const scannerRef = useRef(null)
   const html5QrCodeRef = useRef(null)
+  const zxingReaderRef = useRef(null)
+  const zxingVideoRef = useRef(null)
+  const streamRef = useRef(null)
   const lastScannedRef = useRef('')
   const lastScanTimeRef = useRef(0)
   const isCameraActiveRef = useRef(false)
   const cameraFacingRef = useRef('environment')
+  const stopRequestedRef = useRef(false)
 
   useEffect(() => {
     let isMounted = true
@@ -75,7 +89,9 @@ function BarcodeScanner() {
     return () => {
       isMounted = false
       window.removeEventListener(db.changeEvent, handleDBChange)
+      stopAllCamera()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -84,18 +100,14 @@ function BarcodeScanner() {
     }
   }, [isScanning])
 
-  // Sync ref dengan state isCameraActive
+  // Sync ref dengan state
   useEffect(() => {
     isCameraActiveRef.current = isCameraActive
   }, [isCameraActive])
 
-  // Cleanup saat komponen unmount
   useEffect(() => {
-    return () => {
-      stopCamera()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    cameraFacingRef.current = cameraFacing
+  }, [cameraFacing])
 
   const processBarcode = async (barcode) => {
     const cleanedBarcode = String(barcode).trim()
@@ -125,7 +137,7 @@ function BarcodeScanner() {
     const sparepart = sparepartService.findByBarcode(cleanedBarcode, sparepartsList)
     if (!sparepart) {
       setError(`Barcode "${cleanedBarcode}" tidak ditemukan di database`)
-      // Simpan riwayat scan NOT_FOUND ke Supabase
+      // Simpan riwayat scan NOT_FOUND ke database terintegrasi
       const newScan = {
         barcode: cleanedBarcode,
         status: 'NOT_FOUND',
@@ -134,13 +146,17 @@ function BarcodeScanner() {
         scannedAt: new Date().toISOString()
       }
       setRecentScans(prev => [newScan, ...prev].slice(0, 20))
-      scanHistoryService.addScan(newScan)
+      try {
+        await scanHistoryService.addScan(newScan)
+      } catch (e) {
+        console.warn('Gagal simpan riwayat scan:', e)
+      }
       soundService.error()
       return
     }
 
     setResult(sparepart)
-    // Simpan riwayat scan FOUND ke Supabase
+    // Simpan riwayat scan FOUND ke database terintegrasi
     const newScan = {
       barcode: cleanedBarcode,
       status: 'FOUND',
@@ -149,7 +165,11 @@ function BarcodeScanner() {
       scannedAt: new Date().toISOString()
     }
     setRecentScans(prev => [newScan, ...prev].slice(0, 20))
-    scanHistoryService.addScan(newScan)
+    try {
+      await scanHistoryService.addScan(newScan)
+    } catch (e) {
+      console.warn('Gagal simpan riwayat scan:', e)
+    }
     setBarcodeInput('')
     soundService.scan()
   }
@@ -175,158 +195,296 @@ function BarcodeScanner() {
     }
   }
 
+  // Cek dukungan kamera & izin sebelum buka kamera
+  const checkCameraSupport = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Browser tidak mendukung akses kamera. Gunakan Chrome, Safari, atau Edge terbaru.')
+    }
+
+    // Cek apakah halaman diakses via HTTPS (kamera hanya jalan di secure context)
+    if (!window.isSecureContext) {
+      throw new Error('BROWSER_SECURITY')
+    }
+
+    // Cek izin kamera sudah diberikan atau belum
+    try {
+      const permissionStatus = await navigator.permissions.query({ name: 'camera' })
+      if (permissionStatus.state === 'denied') {
+        throw new Error('PERMISSION_DENIED')
+      }
+    } catch {
+      // Beberapa browser tidak support permissions API - lanjutkan saja
+    }
+  }
+
+  // === Engine 1: Html5Qrcode (primary, paling kompatibel untuk barcode EAN-13) ===
+  const startHtml5QrCode = async (facing) => {
+    // Bersihkan area scanner terlebih dahulu
+    if (scannerRef.current) {
+      scannerRef.current.innerHTML = ''
+    }
+
+    const html5QrCode = new Html5Qrcode('barcode-scanner-area')
+    html5QrCodeRef.current = html5QrCode
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    const config = {
+      fps: 10,
+      qrbox: { width: isMobile ? 260 : 250, height: isMobile ? 260 : 250 },
+      aspectRatio: isMobile ? undefined : 1.0,
+      disableFlip: false
+    }
+
+    let cameraArgs
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const videoDevices = devices.filter(d => d.kind === 'videoinput')
+
+    if (videoDevices.length > 1) {
+      // Pilih kamera berdasarkan facing yang diminta
+      const target = facing === 'environment'
+        ? videoDevices.find(d => {
+            const label = (d.label || '').toLowerCase()
+            return label.includes('back') || label.includes('belakang') || label.includes('rear') || label.includes('environment')
+          })
+        : videoDevices.find(d => {
+            const label = (d.label || '').toLowerCase()
+            return label.includes('front') || label.includes('depan') || label.includes('user') || label.includes('selfie')
+          })
+      cameraArgs = target ? { deviceId: { exact: target.deviceId } } : { facingMode: facing }
+    } else {
+      // Hanya 1 kamera - pakai facingMode langsung (paling kompatibel mobile)
+      cameraArgs = { facingMode: facing }
+    }
+
+    // Pastikan elemen video terlihat & memiliki ukuran sebelum start
+    scannerRef.current?.classList.remove('hidden')
+    scannerRef.current?.classList.add('block')
+
+    await html5QrCode.start(
+      cameraArgs,
+      config,
+      (decodedText) => {
+        processBarcode(decodedText)
+      },
+      () => {
+        // Error scan per frame - abaikan (ini normal saat tidak ada barcode)
+      }
+    )
+  }
+
+  // === Engine 2: ZXing (fallback, deteksi lebih lanjut & berbagai format) ===
+  const startZxingReader = async (facing) => {
+    if (scannerRef.current) {
+      scannerRef.current.innerHTML = ''
+    }
+
+    const reader = new MultiFormatReader()
+    zxingReaderRef.current = reader
+
+    // Buat video element untuk zxing
+    const videoEl = document.createElement('video')
+    videoEl.setAttribute('muted', 'true')
+    videoEl.setAttribute('playsinline', 'true')
+    videoEl.style.width = '100%'
+    videoEl.style.height = '280px'
+    videoEl.style.objectFit = 'cover'
+    scannerRef.current?.appendChild(videoEl)
+    zxingVideoRef.current = videoEl
+
+    // Akses kamera langsung via getUserMedia (lebih reliable)
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: facing === 'environment' ? 'environment' : 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    streamRef.current = stream
+    videoEl.srcObject = stream
+    await videoEl.play()
+
+    // Mulai decoding loop
+    const decodeLoop = async () => {
+      if (!zxingReaderRef.current || stopRequestedRef.current || !zxingVideoRef.current) return
+      try {
+        const result = await zxingReaderRef.current.decodeFromVideoElement(zxingVideoRef.current)
+        if (result) {
+          processBarcode(result.getText())
+        }
+      } catch (e) {
+        // No barcode ditemukan di frame ini - tetap coba
+      }
+      // Loop terus
+      setTimeout(decodeLoop, 100)
+    }
+    decodeLoop()
+  }
+
+  // === Multi-engine start (auto fallback) ===
   const startCamera = async () => {
     setCameraError('')
     setCameraLoading(true)
+    stopRequestedRef.current = false
 
     try {
-      // Browser hanya mengizinkan akses kamera pada SECURE CONTEXT:
-      // HTTPS atau http://localhost (atau 127.0.0.1)
-      // Jika halaman dibuka via http:// (bukan localhost), kamera DIBLOKIR browser.
-      if (!window.isSecureContext) {
-        throw new Error('BROWSER_SECURITY')
-      }
+      await checkCameraSupport()
 
       // Pastikan elemen scanner tersedia
       if (!scannerRef.current) {
         throw new Error('Elemen scanner tidak ditemukan')
       }
 
-      // Bersihkan elemen jika sudah ada scan area sebelumnya
+      // Bersihkan elemen scan area
       scannerRef.current.innerHTML = ''
 
-      // PENTING: html5-qrcode gagal jika elemen video hidden/display:none
-      // (tidak punya ukuran). Hapus class 'hidden' & aktifkan UI SEBELUM start().
+      // Aktifkan UI SEBELUM start() (penting - video perlu punya ukuran)
       scannerRef.current.classList.remove('hidden')
       scannerRef.current.classList.add('block')
       setIsCameraActive(true)
       isCameraActiveRef.current = true
 
-      const html5QrCode = new Html5Qrcode('barcode-scanner-area')
-      html5QrCodeRef.current = html5QrCode
+      // Siapkan enumerateDevices untuk pendeteksian kamera
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const videoDevices = devices.filter(d => d.kind === 'videoinput')
+        setAllCameras(videoDevices)
+      } catch {
+        setAllCameras([])
+      }
 
       const facing = cameraFacingRef.current || 'environment'
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-      const config = {
-        fps: 10,
-        qrbox: { width: isMobile ? 280 : 250, height: isMobile ? 280 : 250 },
-        aspectRatio: 1.0
-      }
 
-      let cameraArgs
-      if (isMobile) {
-        // Untuk handphone: gunakan facingMode langsung (paling kompatibel)
-        // Tidak perlu getCameras() yang bisa gagal di beberapa browser mobile
-        cameraArgs = { facingMode: facing }
-      } else {
-        // Untuk desktop: coba dapatkan daftar kamera
-        let cameras = []
+      try {
+        // Coba html5-qrcode dulu (paling baik untuk barcode EAN)
+        await startHtml5QrCode(facing)
+        setEngineMode('html5')
+      } catch (html5Error) {
+        console.warn('html5-qrcode gagal, coba ZXing:', html5Error)
+        // Bersihkan
+        if (html5QrCodeRef.current) {
+          try {
+            await html5QrCodeRef.current.stop()
+            html5QrCodeRef.current.clear()
+          } catch {}
+          html5QrCodeRef.current = null
+        }
+        scannerRef.current.innerHTML = ''
+
+        // Coba ZXing sebagai fallback
         try {
-          cameras = await Html5Qrcode.getCameras()
-        } catch (e) {
-          console.warn('Gagal mendapatkan daftar kamera:', e)
-        }
-
-        if (cameras && cameras.length > 0) {
-          setAllCameras(cameras)
-          // Pilih kamera berdasarkan label
-          let selectedCamera = null
-          if (facing === 'environment') {
-            // Kamera belakang: cari label yang mengandung 'back', 'belakang', 'environment', atau 'rear'
-            selectedCamera = cameras.find(c =>
-              c.label.toLowerCase().includes('back') ||
-              c.label.toLowerCase().includes('belakang') ||
-              c.label.toLowerCase().includes('environment') ||
-              c.label.toLowerCase().includes('rear')
-            ) || cameras[cameras.length - 1] // Fallback: kamera terakhir biasanya belakang
-          } else {
-            // Kamera depan: cari label yang mengandung 'front', 'depan', 'user', atau 'selfie'
-            selectedCamera = cameras.find(c =>
-              c.label.toLowerCase().includes('front') ||
-              c.label.toLowerCase().includes('depan') ||
-              c.label.toLowerCase().includes('user') ||
-              c.label.toLowerCase().includes('selfie')
-            ) || cameras[0] // Fallback: kamera pertama
-          }
-          cameraArgs = selectedCamera ? selectedCamera.id : { facingMode: facing }
-        } else {
-          // Fallback: gunakan facingMode jika tidak ada daftar kamera
-          cameraArgs = { facingMode: facing }
+          await startZxingReader(facing)
+          setEngineMode('zxing')
+        } catch (zxingError) {
+          console.error('ZXing juga gagal:', zxingError)
+          throw html5Error // Lapor error dari engine utama
         }
       }
 
-      await html5QrCode.start(
-        cameraArgs,
-        config,
-        (decodedText) => {
-          // Sukses scan
-          processBarcode(decodedText)
-        },
-        () => {
-          // Error scan (biasanya setiap frame tanpa barcode) - abaikan
-        }
-      )
-
-      setIsCameraActive(true)
-      isCameraActiveRef.current = true
+      setCameraLoading(false)
     } catch (err) {
       console.error('Camera error:', err)
-      // Bersihkan jika ada yang sudah ter-set
-      if (html5QrCodeRef.current) {
-        try {
-          html5QrCodeRef.current.clear()
-        } catch {
-          // abaikan
-        }
-        html5QrCodeRef.current = null
-      }
-      isCameraActiveRef.current = false
-      setIsCameraActive(false)
-
-      if (err.message === 'BROWSER_SECURITY') {
-        setCameraError(
-          'Kamera hanya dapat diakses melalui HTTPS atau localhost. ' +
-          'Halaman ini sedang dibuka melalui HTTP biasa (bukan secure context), ' +
-          'sehingga browser memblokir akses kamera. Gunakan https:// atau http://localhost.'
-        )
-      } else {
-        setCameraError(
-          err.message === 'Tidak ada kamera yang terdeteksi'
-            ? 'Tidak ada kamera yang terdeteksi di perangkat ini'
-            : 'Gagal mengakses kamera. Pastikan izin kamera diberikan dan gunakan HTTPS atau localhost.'
-        )
-      }
+      await stopAllCamera()
+      setCameraError(getCameraErrorMessage(err))
       soundService.error()
-    } finally {
       setCameraLoading(false)
     }
   }
 
-  const stopCamera = async () => {
-    if (html5QrCodeRef.current && isCameraActiveRef.current) {
+  const getCameraErrorMessage = (err) => {
+    if (err?.message === 'BROWSER_SECURITY') {
+      return 'Kamera hanya dapat diakses melalui HTTPS atau localhost. Halaman ini sedang dibuka melalui HTTP biasa, sehingga browser memblokir akses kamera. Gunakan https:// atau http://localhost.'
+    }
+    if (err?.message === 'PERMISSION_DENIED' || err?.name === 'NotAllowedError') {
+      return 'Izin kamera ditolak. Klik ikon gembok 🔒 di address bar browser, lalu izinkan akses kamera, kemudian coba lagi.'
+    }
+    if (err?.name === 'NotFoundError' || err?.message === 'Tidak ada kamera yang terdeteksi') {
+      return 'Tidak ada kamera yang terdeteksi di perangkat ini.'
+    }
+    if (err?.name === 'NotReadableError' || err?.name === 'TrackStartError') {
+      return 'Kamera sedang digunakan oleh aplikasi lain. Tutup aplikasi lain yang memakai kamera, lalu coba lagi.'
+    }
+    if (err?.name === 'OverconstrainedError') {
+      return 'Kamera tidak mendukung mode yang diminta. Coba ganti kamera atau gunakan mode auto.'
+    }
+    return err?.message || 'Gagal mengakses kamera. Pastikan izin kamera diberikan dan gunakan HTTPS atau localhost.'
+  }
+
+  const stopAllCamera = async () => {
+    stopRequestedRef.current = true
+
+    // Stop HTML5 QR
+    if (html5QrCodeRef.current) {
       try {
         await html5QrCodeRef.current.stop()
         html5QrCodeRef.current.clear()
       } catch (err) {
-        console.warn('Error stopping camera:', err)
+        console.warn('Error stopping html5 camera:', err)
       }
       html5QrCodeRef.current = null
-      setIsCameraActive(false)
-      isCameraActiveRef.current = false
-
-      // Bersihkan area scanner
-      if (scannerRef.current) {
-        scannerRef.current.innerHTML = ''
-      }
     }
+
+    // Stop ZXing
+    if (zxingReaderRef.current) {
+      try {
+        zxingReaderRef.current.reset()
+      } catch {}
+      zxingReaderRef.current = null
+    }
+
+    // Stop semua media tracks
+    if (streamRef.current) {
+      try {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      } catch {}
+      streamRef.current = null
+    }
+
+    // Bersihkan video
+    if (zxingVideoRef.current) {
+      zxingVideoRef.current.srcObject = null
+      zxingVideoRef.current = null
+    }
+
+    // Bersihkan area scanner
+    if (scannerRef.current) {
+      scannerRef.current.innerHTML = ''
+    }
+
+    setIsCameraActive(false)
+    isCameraActiveRef.current = false
+    setIsTorchOn(false)
   }
 
   const handleToggleCamera = async () => {
     soundService.click()
     if (isCameraActive) {
-      await stopCamera()
+      await stopAllCamera()
     } else {
       await startCamera()
+    }
+  }
+
+  const handleToggleTorch = async () => {
+    soundService.click()
+    const nextState = !isTorchOn
+    setIsTorchOn(nextState)
+    try {
+      // Jika memakai stream langsung, toggle torch via track constraints
+      if (streamRef.current) {
+        const track = streamRef.current.getVideoTracks()[0]
+        await track.applyConstraints({ advanced: [{ torch: nextState }] })
+      }
+      // Visual effect untuk semua mode
+      const scannerArea = document.getElementById('barcode-scanner-area')
+      if (scannerArea) {
+        scannerArea.style.filter = nextState ? 'brightness(1.25)' : 'none'
+      }
+    } catch (err) {
+      console.warn('Torch tidak didukung:', err)
+      setError('Fitur senter tidak didukung pada kamera ini')
     }
   }
 
@@ -339,8 +497,28 @@ function BarcodeScanner() {
 
     // Jika kamera sedang aktif, restart dengan kamera baru
     if (isCameraActive) {
-      await stopCamera()
+      await stopAllCamera()
       await startCamera()
+    }
+  }
+
+  const handleRetryCamera = async () => {
+    await stopAllCamera()
+    await startCamera()
+  }
+
+  const handlePrintLabel = (sparepart) => {
+    setSelectedForPrint(sparepart)
+    setShowPrintModal(true)
+    soundService.click()
+  }
+
+  const handlePrint = () => {
+    if (selectedForPrint) {
+      // Tunggu render barcode selesai lalu print
+      setTimeout(() => {
+        window.print()
+      }, 300)
     }
   }
 
@@ -399,25 +577,56 @@ function BarcodeScanner() {
             <div
               id="barcode-scanner-area"
               ref={scannerRef}
-              className={`rounded-lg overflow-hidden bg-black transition-all ${
+              className={`relative rounded-lg overflow-hidden bg-black transition-all scanline-animation ${
                 isCameraActive || cameraLoading ? 'block' : 'hidden'
               }`}
+              style={{ minHeight: isCameraActive || cameraLoading ? '280px' : '0' }}
             />
+            {isCameraActive && (
+              <div className="flex items-center justify-center mt-3">
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                  Engine: <b>{engineMode === 'zxing' ? 'ZXing Advanced' : 'Html5 QR'}</b>
+                </span>
+              </div>
+            )}
             {isCameraActive && allCameras.length > 1 && (
-              <button
-                onClick={handleSwitchCamera}
-                className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-              >
-                <Camera className="w-4 h-4" />
-                Ganti ke Kamera {cameraFacing === 'environment' ? 'Depan' : 'Belakang'}
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleSwitchCamera}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Ganti ke Kamera {cameraFacing === 'environment' ? 'Depan' : 'Belakang'}
+                </button>
+                <button
+                  onClick={handleToggleTorch}
+                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                    isTorchOn
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  title={isTorchOn ? 'Matikan Senter' : 'Nyalakan Senter'}
+                >
+                  <SunMedium className="w-4 h-4" />
+                  Sent
+                </button>
+              </div>
             )}
             {cameraError && (
-              <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                <CameraOff className="w-4 h-4 shrink-0" />
-                <div>
-                  <p className="font-medium">Kamera tidak dapat diakses</p>
-                  <p className="text-xs mt-1">{cameraError}</p>
+              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <div className="flex items-start gap-2">
+                  <CameraOff className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Kamera tidak dapat diakses</p>
+                    <p className="text-xs mt-1">{cameraError}</p>
+                    <button
+                      onClick={handleRetryCamera}
+                      className="mt-2 inline-flex items-center font-semibold text-red-800 hover:text-red-900 gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Coba lagi
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -429,6 +638,16 @@ function BarcodeScanner() {
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   Arahkan kamera ke barcode sparepart untuk scan otomatis
+                </p>
+              </div>
+            )}
+            {!isSecureContext && (
+              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg">
+                <p className="font-medium">⚠️ Halaman ini bukan secure context</p>
+                <p className="text-xs mt-0.5">
+                  Kamera diblokir browser karena diakses melalui HTTP biasa.
+                  Gunakan <span className="font-semibold">https://</span> atau{' '}
+                  <span className="font-semibold">http://localhost</span>.
                 </p>
               </div>
             )}
@@ -525,7 +744,7 @@ function BarcodeScanner() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-3">
+                <div className="flex flex-col sm:flex-row gap-2 pt-3">
                   <Link
                     to="/barang-masuk"
                     className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
@@ -540,6 +759,13 @@ function BarcodeScanner() {
                     <ArrowUpFromLine className="w-4 h-4" />
                     Barang Keluar
                   </Link>
+                  <button
+                    onClick={() => handlePrintLabel(result)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Cetak Label
+                  </button>
                 </div>
               </div>
             </div>
@@ -595,28 +821,20 @@ function BarcodeScanner() {
               <li>• Arahkan kamera ke barcode sparepart</li>
               <li>• Scan akan terjadi otomatis saat barcode terdeteksi</li>
               <li>• Gunakan <span className="font-semibold">HTTPS</span> atau <span className="font-semibold">localhost</span> untuk akses kamera</li>
-              <li>• Jangan gunakan <span className="font-semibold">http://IP-LAN</span> (contoh: http://192.168.1.5) — browser memblokir kamera di HTTP non-localhost</li>
+              <li>• Gunakan tombol <span className="font-semibold">Senter</span> untuk lampu saat ruangan gelap</li>
+              <li>• Gunakan tombol <span className="font-semibold">"Cetak Label"</span> untuk mencetak barcode label</li>
             </ul>
-            {!isSecureContext && (
-              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg">
-                <p className="font-medium">⚠️ Halaman ini bukan secure context</p>
-                <p className="text-xs mt-0.5">
-                  Kamera diblokir browser karena diakses melalui HTTP biasa.
-                  Gunakan <span className="font-semibold">https://</span> atau{' '}
-                  <span className="font-semibold">http://localhost</span>.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
       {/* Daftar Barcode Tersedia */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">Daftar Barcode Sparepart</h2>
+          <span className="text-xs text-gray-500">{allSpareparts.length} items</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -625,6 +843,7 @@ function BarcodeScanner() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama Sparepart</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Stok</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Label</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -644,12 +863,77 @@ function BarcodeScanner() {
                       {sp.stok <= sp.stokMinimum ? 'Kritis' : 'Normal'}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => handlePrintLabel(sp)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
+                      title="Cetak label barcode"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Cetak Label
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Modal Cetak Label */}
+      {showPrintModal && selectedForPrint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowPrintModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Cetak Label Barcode</h2>
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              {/* Preview label */}
+              <div className="labels-grid">
+                <BarcodeLabel sparepart={selectedForPrint} />
+              </div>
+
+              <div className="mt-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Printer className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-semibold mb-1">Cara mencetak:</p>
+                    <ol className="list-decimal ml-4 space-y-0.5">
+                      <li>Klik tombol <b>Cetak Label</b></li>
+                      <li>Pilih printer stiker/label di dialog print</li>
+                      <li>Label barcode siap ditempel & bisa discan dengan kamera HP</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => setShowPrintModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  <Printer className="w-4 h-4" />
+                  Cetak Label
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -23,14 +23,14 @@ function Toast({ message, type, onDismiss }) {
   }
 
   return (
-    <div className={`border rounded-lg p-4 flex items-start gap-3 ${styles[type]}`}>
+    <div className={`border rounded-lg p-4 flex items-start gap-3 shadow-lg ${styles[type]}`}>
       {icons[type]}
       <div className="flex-1">
-        <p className="font-medium">{message}</p>
+        <p className="font-medium text-sm">{message}</p>
       </div>
       <button
         onClick={onDismiss}
-        className="text-current opacity-50 hover:opacity-100"
+        className="text-current opacity-50 hover:opacity-100 touch-target"
       >
         <X className="w-4 h-4" />
       </button>
@@ -53,7 +53,7 @@ export function ToastContainer() {
   }, [])
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm">
+    <div className="fixed bottom-20 lg:bottom-4 right-2 left-2 sm:left-auto sm:right-4 z-[60] space-y-2 max-w-sm mx-auto sm:mx-0">
       {toasts.map(toast => (
         <Toast
           key={toast.id}

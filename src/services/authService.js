@@ -103,6 +103,19 @@ export const authService = {
 
     // Jangan simpan password di sesi
     const { password: _, ...userSession } = user
+    // Sinkronisasi user ke Supabase agar bisa lintas perangkat
+    try {
+      const users = await db.getAll(db.keys.USERS)
+      const existing = users.find(u => u.username === userSession.username)
+      if (existing) {
+        await db.update(db.keys.USERS, existing.id, userSession)
+      } else {
+        await db.insert(db.keys.USERS, userSession)
+      }
+    } catch (err) {
+      console.warn('Gagal sinkronisasi user:', err)
+    }
+
     localStorage.setItem(SESSION_KEY, JSON.stringify(userSession))
     auditService.log('LOGIN', `Pengguna ${username} berhasil masuk.`)
     return userSession
@@ -150,7 +163,22 @@ export const authService = {
       password: hashPassword(userData.password || ''),
       createdAt: new Date().toISOString()
     }
-    return await db.insert(db.keys.USERS, newUser)
+    const saved = await db.insert(db.keys.USERS, newUser)
+
+    // Sinkronisasi user ke Supabase agar bisa lintas perangkat
+    try {
+      const remoteUsers = await db.getAll(db.keys.USERS)
+      const remoteExists = remoteUsers.find(u => u.username === newUser.username)
+      if (remoteExists) {
+        await db.update(db.keys.USERS, remoteExists.id, newUser)
+      } else {
+        await db.insert(db.keys.USERS, newUser)
+      }
+    } catch (err) {
+      console.warn('Gagal sinkronisasi user:', err)
+    }
+
+    return saved
   },
 
   /**

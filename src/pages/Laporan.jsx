@@ -411,27 +411,29 @@ function Laporan() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Laporan & Analisis</h1>
-          <p className="text-gray-500 mt-1">Analisis transaksi dan performa inventori</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Laporan & Analisis</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Analisis transaksi dan performa inventori</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={handleExportCSV}
             disabled={isExporting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             <Download className={`w-4 h-4 ${isExporting ? 'animate-spin' : ''}`} />
-            {isExporting ? 'Mengexport...' : 'Export CSV'}
+            <span className="hidden sm:inline">{isExporting ? 'Mengexport...' : 'Export CSV'}</span>
+            <span className="sm:hidden">Export</span>
           </button>
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
+            className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25 text-sm"
           >
             <Printer className="w-4 h-4" />
-            Cetak Laporan
+            <span className="hidden sm:inline">Cetak Laporan</span>
+            <span className="sm:hidden">Cetak</span>
           </button>
         </div>
       </div>
@@ -466,17 +468,17 @@ function Laporan() {
       </div>
 
       {/* Judul periode */}
-      <div className="bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl shadow-md shadow-brand-500/25 p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-brand-100 text-sm font-medium">
+      <div className="bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl shadow-md shadow-brand-500/25 p-4 sm:p-6 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-brand-100 text-xs sm:text-sm font-medium">
               Laporan {PERIODS.find(p => p.id === period)?.label}
             </p>
-            <h2 className="text-2xl font-bold mt-1">{getPeriodTitle()}</h2>
+            <h2 className="text-lg sm:text-2xl font-bold mt-1 truncate-mobile">{getPeriodTitle()}</h2>
           </div>
-          <div className="text-right">
-            <p className="text-brand-100 text-sm">Total Transaksi</p>
-            <p className="text-3xl font-bold">{periodStats.totalTransaksi}</p>
+          <div className="text-left sm:text-right shrink-0">
+            <p className="text-brand-100 text-xs sm:text-sm">Total Transaksi</p>
+            <p className="text-2xl sm:text-3xl font-bold">{periodStats.totalTransaksi}</p>
           </div>
         </div>
       </div>
