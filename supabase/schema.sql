@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 CREATE TABLE IF NOT EXISTS public.audit_log (
   id BIGSERIAL PRIMARY KEY,
   timestamp TIMESTAMPTZ DEFAULT now(),
-  user TEXT,
+  "user" TEXT,
   role TEXT,
   action TEXT NOT NULL,
   detail TEXT,
