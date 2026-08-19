@@ -107,6 +107,73 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
 );
 
 -- ============================================
+-- ENSURE COLUMNS (idempotent untuk tabel yang sudah ada)
+-- Memastikan semua kolom ada sebelum index dibuat
+-- ============================================
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS kode TEXT;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS nama TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS kontak TEXT;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS telepon TEXT;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS alamat TEXT;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS kode TEXT;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS nama TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS kategori TEXT;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS merk TEXT;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS supplier_id BIGINT REFERENCES public.suppliers(id) ON DELETE SET NULL;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS harga_beli NUMERIC DEFAULT 0;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS harga_jual NUMERIC DEFAULT 0;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS stok INTEGER DEFAULT 0;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS stok_minimum INTEGER DEFAULT 0;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS lokasi TEXT;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS barcode TEXT;
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS satuan TEXT DEFAULT 'pcs';
+ALTER TABLE public.spareparts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS tipe TEXT NOT NULL DEFAULT 'MASUK';
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS nomor TEXT;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS sparepart_id BIGINT REFERENCES public.spareparts(id) ON DELETE SET NULL;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS supplier_id BIGINT REFERENCES public.suppliers(id) ON DELETE SET NULL;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS jumlah INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS harga_satuan NUMERIC DEFAULT 0;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS total NUMERIC DEFAULT 0;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS tanggal TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS keterangan TEXT;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS sparepart_id BIGINT REFERENCES public.spareparts(id) ON DELETE SET NULL;
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS tipe TEXT NOT NULL DEFAULT 'MASUK';
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS jumlah INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS stok_sebelum INTEGER DEFAULT 0;
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS stok_sesudah INTEGER DEFAULT 0;
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS tanggal TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS referensi_id BIGINT;
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS barcode TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'FOUND';
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS sparepart_id BIGINT REFERENCES public.spareparts(id) ON DELETE SET NULL;
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS sparepart_name TEXT;
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS scanned_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.scan_history ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS nama TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'STAFF';
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS "timestamp" TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS "user" TEXT;
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS "role" TEXT;
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS detail TEXT;
+ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
+-- ============================================
 -- INDEXES
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_spareparts_supplier_id ON public.spareparts (supplier_id);
@@ -135,6 +202,14 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Policy: izinkan semua operasi (sesuaikan dengan kebutuhan auth Anda)
+DROP POLICY IF EXISTS "Allow all operations on suppliers" ON public.suppliers;
+DROP POLICY IF EXISTS "Allow all operations on spareparts" ON public.spareparts;
+DROP POLICY IF EXISTS "Allow all operations on transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Allow all operations on stock_movements" ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow all operations on scan_history" ON public.scan_history;
+DROP POLICY IF EXISTS "Allow all operations on users" ON public.users;
+DROP POLICY IF EXISTS "Allow all operations on audit_log" ON public.audit_log;
+
 CREATE POLICY "Allow all operations on suppliers" ON public.suppliers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on spareparts" ON public.spareparts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on transactions" ON public.transactions FOR ALL USING (true) WITH CHECK (true);
@@ -165,6 +240,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger untuk setiap tabel
+DROP TRIGGER IF EXISTS trigger_update_suppliers_updated_at ON public.suppliers;
+DROP TRIGGER IF EXISTS trigger_update_spareparts_updated_at ON public.spareparts;
+DROP TRIGGER IF EXISTS trigger_update_transactions_updated_at ON public.transactions;
+DROP TRIGGER IF EXISTS trigger_update_stock_movements_updated_at ON public.stock_movements;
+DROP TRIGGER IF EXISTS trigger_update_scan_history_updated_at ON public.scan_history;
+DROP TRIGGER IF EXISTS trigger_update_users_updated_at ON public.users;
+DROP TRIGGER IF EXISTS trigger_update_audit_log_updated_at ON public.audit_log;
+
 CREATE TRIGGER trigger_update_suppliers_updated_at BEFORE UPDATE ON public.suppliers FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER trigger_update_spareparts_updated_at BEFORE UPDATE ON public.spareparts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER trigger_update_transactions_updated_at BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
