@@ -2,14 +2,16 @@ import { db } from './database'
 
 export const scanHistoryService = {
   // Simpan riwayat scan ke Supabase (dengan fallback localStorage)
-  async addScan({ barcode, status, sparepartId = null, sparepartName = null, scannedAt = null, timestamp = null }) {
+  async addScan({ barcode, status, sparepartId = null, sparepartName = null, scannedAt = null, timestamp = null, stokSebelum = null, stokSesudah = null }) {
     const now = new Date().toISOString()
     const scan = {
       barcode,
-      status, // 'FOUND' | 'NOT_FOUND'
+      status, // 'FOUND' | 'NOT_FOUND' | 'OK'
       sparepartId,
       sparepartName,
       scannedAt: scannedAt || timestamp || now,
+      stokSebelum,
+      stokSesudah,
       createdAt: now
     }
 
@@ -33,6 +35,29 @@ export const scanHistoryService = {
     } catch (error) {
       console.error('Gagal mengambil riwayat scan:', error)
       return []
+    }
+  },
+
+  // Update status riwayat scan (misalnya konfirmasi OK)
+  async updateStatus(id, status) {
+    try {
+      const result = await db.update(db.keys.SCAN_HISTORY, id, { status })
+      return result
+    } catch (error) {
+      console.error('Gagal update status riwayat scan:', error)
+      return null
+    }
+  },
+
+  // Hapus satu riwayat scan
+  async deleteScan(id) {
+    if (id === null || id === undefined) return false
+    try {
+      await db.remove(db.keys.SCAN_HISTORY, id)
+      return true
+    } catch (error) {
+      console.error('Gagal menghapus riwayat scan:', error)
+      return false
     }
   },
 

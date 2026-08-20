@@ -44,6 +44,8 @@ const FIELD_MAPPINGS = {
     sparepartId: 'sparepart_id',
     sparepartName: 'sparepart_name',
     scannedAt: 'scanned_at',
+    stokSebelum: 'stok_sebelum',
+    stokSesudah: 'stok_sesudah',
     createdAt: 'created_at'
   },
   users: {

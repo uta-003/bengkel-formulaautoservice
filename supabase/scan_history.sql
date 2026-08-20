@@ -4,9 +4,11 @@
 CREATE TABLE IF NOT EXISTS public.scan_history (
   id BIGSERIAL PRIMARY KEY,
   barcode TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('FOUND', 'NOT_FOUND')),
+  status TEXT NOT NULL CHECK (status IN ('FOUND', 'NOT_FOUND', 'OK')),
   sparepart_id BIGINT REFERENCES public.spareparts(id) ON DELETE SET NULL,
   sparepart_name TEXT,
+  stok_sebelum INTEGER,
+  stok_sesudah INTEGER,
   scanned_at TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );

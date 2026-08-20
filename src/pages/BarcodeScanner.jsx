@@ -14,12 +14,15 @@ import {
   RefreshCw,
   SunMedium,
   Printer,
-  X
+  X,
+  Check,
+  Trash2
 } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { MultiFormatReader } from '@zxing/library'
 import { sparepartService } from '../services/sparepartService'
 import { scanHistoryService } from '../services/scanHistoryService'
+import { transactionService } from '../services/transactionService'
 import { toastService } from '../services/toastService'
 import { db } from '../services/database'
 import { soundService } from '../services/soundService'
@@ -155,14 +158,57 @@ function BarcodeScanner() {
       return
     }
 
-    setResult(sparepart)
+    // Cek stok mencukupi sebelum kurangi
+    if (Number(sparepart.stok || 0) <= 0) {
+      setError(`Stok "${sparepart.nama}" sudah habis (0 pcs). Tidak dapat melakukan scan keluar.`)
+      const newScan = {
+        barcode: cleanedBarcode,
+        status: 'NOT_FOUND',
+        sparepartId: sparepart.id,
+        sparepartName: sparepart.nama,
+        scannedAt: new Date().toISOString()
+      }
+      setRecentScans(prev => [newScan, ...prev].slice(0, 20))
+      try {
+        await scanHistoryService.addScan(newScan)
+      } catch (e) {
+        console.warn('Gagal simpan riwayat scan:', e)
+      }
+      soundService.error()
+      return
+    }
+
+    const stokSebelum = Number(sparepart.stok || 0)
+    const stokSesudah = stokSebelum - 1
+
+    // Kurangi stok otomatis 1 pcs setiap scan (tercatat sebagai transaksi Barang Keluar)
+    try {
+      await transactionService.barangKeluar({
+        sparepartId: sparepart.id,
+        jumlah: 1,
+        keterangan: `Scan barcode keluar: ${cleanedBarcode}`
+      })
+    } catch (e) {
+      console.error('Gagal mengurangi stok:', e)
+      setError(`Gagal mengurangi stok: ${e.message || 'Terjadi kesalahan'}`)
+      soundService.error()
+      return
+    }
+
+    // Update data sparepart di state lokal
+    const updatedSparepart = { ...sparepart, stok: stokSesudah }
+    setAllSpareparts(prev => prev.map(sp => sp.id === sparepart.id ? updatedSparepart : sp))
+    setResult(updatedSparepart)
+
     // Simpan riwayat scan FOUND ke database terintegrasi
     const newScan = {
       barcode: cleanedBarcode,
       status: 'FOUND',
       sparepartId: sparepart.id,
       sparepartName: sparepart.nama,
-      scannedAt: new Date().toISOString()
+      scannedAt: new Date().toISOString(),
+      stokSebelum,
+      stokSesudah
     }
     setRecentScans(prev => [newScan, ...prev].slice(0, 20))
     try {
@@ -522,6 +568,36 @@ function BarcodeScanner() {
     }
   }
 
+  // Konfirmasi scan (tandai status OK)
+  const handleConfirmScan = async (scan) => {
+    if (!scan || scan.id === null || scan.id === undefined) return
+    soundService.click()
+    try {
+      await scanHistoryService.updateStatus(scan.id, 'OK')
+      setRecentScans(prev => prev.map(s =>
+        s.id === scan.id ? { ...s, status: 'OK' } : s
+      ))
+      toastService.success('Scan dikonfirmasi')
+    } catch (e) {
+      console.error('Gagal konfirmasi scan:', e)
+      toastService.error('Gagal mengkonfirmasi scan')
+    }
+  }
+
+  // Hapus riwayat scan
+  const handleDeleteScan = async (scan) => {
+    if (!scan || scan.id === null || scan.id === undefined) return
+    soundService.click()
+    try {
+      await scanHistoryService.deleteScan(scan.id)
+      setRecentScans(prev => prev.filter(s => s.id !== scan.id))
+      toastService.success('Riwayat scan dihapus')
+    } catch (e) {
+      console.error('Gagal hapus riwayat scan:', e)
+      toastService.error('Gagal menghapus riwayat scan')
+    }
+  }
+
   const isLowStock = result && result.stok <= result.stokMinimum
 
   return (
@@ -780,33 +856,57 @@ function BarcodeScanner() {
           ) : (
             <div className="space-y-3">
               {recentScans.map((scan, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      scan.status === 'FOUND' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        scan.status === 'FOUND' || scan.status === 'OK' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                      }`}>
+                        {scan.status === 'FOUND' || scan.status === 'OK' ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-mono text-sm font-medium text-gray-800">{scan.barcode}</p>
+                        {scan.sparepartName && (
+                          <p className="text-xs text-gray-600">{scan.sparepartName}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          {scan.status === 'OK' ? 'Dikonfirmasi' : scan.status === 'FOUND' ? 'Ditemukan' : 'Tidak ditemukan'} •{' '}
+                          {new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}
+                        </p>
+                        {scan.stokSebelum !== null && scan.stokSesudah !== null && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Stok: <span className="font-medium text-gray-700">{scan.stokSebelum} → {scan.stokSesudah} pcs</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                      scan.status === 'OK' ? 'bg-blue-100 text-blue-700' : scan.status === 'FOUND' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
-                      {scan.status === 'FOUND' ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-mono text-sm font-medium text-gray-800">{scan.barcode}</p>
-                      {scan.sparepartName && (
-                        <p className="text-xs text-gray-600">{scan.sparepartName}</p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        {scan.status === 'FOUND' ? 'Ditemukan' : 'Tidak ditemukan'} •{' '}
-                        {new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}
-                      </p>
-                    </div>
+                      {scan.status === 'OK' ? 'OK' : scan.status === 'FOUND' ? 'FOUND' : 'NOT FOUND'}
+                    </span>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    scan.status === 'FOUND' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {scan.status === 'FOUND' ? 'OK' : 'NOT FOUND'}
-                  </span>
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => handleConfirmScan(scan)}
+                      disabled={scan.status === 'OK'}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      OK
+                    </button>
+                    <button
+                      onClick={() => handleDeleteScan(scan)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Hapus
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
