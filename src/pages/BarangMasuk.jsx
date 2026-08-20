@@ -372,7 +372,11 @@ function BarangMasuk() {
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.nomor}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(t.tanggal).toLocaleDateString('id-ID')}
+                      {new Date(t.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      <br />
+                      <span className="text-xs text-gray-400">
+                        {new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-800">{t.sparepart?.nama}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{t.supplier?.nama || '-'}</td>
@@ -418,7 +422,10 @@ function BarangMasuk() {
                       <p className="text-sm font-semibold text-gray-800 truncate-mobile">{t.sparepart?.nama}</p>
                       <p className="text-xs text-gray-500">{t.nomor}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(t.tanggal).toLocaleDateString('id-ID')} • {t.supplier?.nama || '-'}
+                        {new Date(t.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB • {t.supplier?.nama || '-'}
                       </p>
                     </div>
                     <div className="text-right shrink-0">

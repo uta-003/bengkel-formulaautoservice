@@ -360,7 +360,11 @@ function BarangKeluar() {
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.nomor}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(t.tanggal).toLocaleDateString('id-ID')}
+                      {new Date(t.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      <br />
+                      <span className="text-xs text-gray-400">
+                        {new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-800">{t.sparepart?.nama}</td>
                     <td className="px-4 py-3 text-center text-sm font-medium text-red-600">-{t.jumlah}</td>
@@ -406,7 +410,10 @@ function BarangKeluar() {
                       <p className="text-sm font-semibold text-gray-800 truncate-mobile">{t.sparepart?.nama}</p>
                       <p className="text-xs text-gray-500">{t.nomor}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(t.tanggal).toLocaleDateString('id-ID')}
+                        {new Date(t.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
                       </p>
                       {t.keterangan && (
                         <p className="text-xs text-gray-500 mt-0.5 truncate-mobile">{t.keterangan}</p>
