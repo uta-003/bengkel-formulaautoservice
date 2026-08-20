@@ -46,6 +46,7 @@ const FIELD_MAPPINGS = {
     scannedAt: 'scanned_at',
     stokSebelum: 'stok_sebelum',
     stokSesudah: 'stok_sesudah',
+    jumlah: 'jumlah',
     createdAt: 'created_at'
   },
   users: {

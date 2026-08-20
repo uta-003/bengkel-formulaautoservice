@@ -2,16 +2,17 @@ import { db } from './database'
 
 export const scanHistoryService = {
   // Simpan riwayat scan ke Supabase (dengan fallback localStorage)
-  async addScan({ barcode, status, sparepartId = null, sparepartName = null, scannedAt = null, timestamp = null, stokSebelum = null, stokSesudah = null }) {
+  async addScan({ barcode, status, sparepartId = null, sparepartName = null, scannedAt = null, timestamp = null, stokSebelum = null, stokSesudah = null, jumlah = null }) {
     const now = new Date().toISOString()
     const scan = {
       barcode,
-      status, // 'FOUND' | 'NOT_FOUND' | 'OK'
+      status, // 'FOUND' | 'NOT_FOUND' | 'KELUAR'
       sparepartId,
       sparepartName,
       scannedAt: scannedAt || timestamp || now,
       stokSebelum,
       stokSesudah,
+      jumlah,
       createdAt: now
     }
 

@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   ScanBarcode,
   Search,
   Package,
   AlertTriangle,
   CheckCircle2,
-  ArrowDownToLine,
   ArrowUpFromLine,
   Camera,
   CameraOff,
@@ -14,9 +12,7 @@ import {
   RefreshCw,
   SunMedium,
   Printer,
-  X,
-  Check,
-  Trash2
+  X
 } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { MultiFormatReader } from '@zxing/library'
@@ -32,6 +28,9 @@ import BarcodeLabel from '../components/BarcodeLabel'
 function BarcodeScanner() {
   const [barcodeInput, setBarcodeInput] = useState('')
   const [result, setResult] = useState(null)
+  const [pendingScan, setPendingScan] = useState(null)
+  const [scanQuantity, setScanQuantity] = useState(1)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState('')
   const [recentScans, setRecentScans] = useState([])
   const [isScanning, setIsScanning] = useState(false)
@@ -158,7 +157,7 @@ function BarcodeScanner() {
       return
     }
 
-    // Cek stok mencukupi sebelum kurangi
+    // Cek stok mencukupi sebelum tampilkan form jumlah
     if (Number(sparepart.stok || 0) <= 0) {
       setError(`Stok "${sparepart.nama}" sudah habis (0 pcs). Tidak dapat melakukan scan keluar.`)
       const newScan = {
@@ -178,46 +177,83 @@ function BarcodeScanner() {
       return
     }
 
-    const stokSebelum = Number(sparepart.stok || 0)
-    const stokSesudah = stokSebelum - 1
+    // Tampilkan form pilihan jumlah untuk barang keluar
+    setPendingScan(sparepart)
+    setScanQuantity(1)
+    setResult(sparepart)
+    setBarcodeInput('')
+    soundService.scan()
+  }
 
-    // Kurangi stok otomatis 1 pcs setiap scan (tercatat sebagai transaksi Barang Keluar)
-    try {
-      await transactionService.barangKeluar({
-        sparepartId: sparepart.id,
-        jumlah: 1,
-        keterangan: `Scan barcode keluar: ${cleanedBarcode}`
-      })
-    } catch (e) {
-      console.error('Gagal mengurangi stok:', e)
-      setError(`Gagal mengurangi stok: ${e.message || 'Terjadi kesalahan'}`)
-      soundService.error()
+  // Proses barang keluar dengan jumlah yang dipilih
+  const handleConfirmKeluar = async () => {
+    if (!pendingScan) return
+    const qty = Number(scanQuantity)
+    if (!qty || qty <= 0) {
+      setError('Jumlah harus lebih dari 0')
+      return
+    }
+    if (qty > Number(pendingScan.stok || 0)) {
+      setError(`Jumlah melebihi stok tersedia (${pendingScan.stok} pcs)`)
       return
     }
 
-    // Update data sparepart di state lokal
-    const updatedSparepart = { ...sparepart, stok: stokSesudah }
-    setAllSpareparts(prev => prev.map(sp => sp.id === sparepart.id ? updatedSparepart : sp))
-    setResult(updatedSparepart)
+    setIsProcessing(true)
+    setError('')
+    const stokSebelum = Number(pendingScan.stok || 0)
+    const stokSesudah = stokSebelum - qty
 
-    // Simpan riwayat scan FOUND ke database terintegrasi
-    const newScan = {
-      barcode: cleanedBarcode,
-      status: 'FOUND',
-      sparepartId: sparepart.id,
-      sparepartName: sparepart.nama,
-      scannedAt: new Date().toISOString(),
-      stokSebelum,
-      stokSesudah
-    }
-    setRecentScans(prev => [newScan, ...prev].slice(0, 20))
     try {
-      await scanHistoryService.addScan(newScan)
+      // Catat transaksi barang keluar
+      await transactionService.barangKeluar({
+        sparepartId: pendingScan.id,
+        jumlah: qty,
+        keterangan: `Scan barcode keluar: ${pendingScan.barcode}`
+      })
+
+      // Update data sparepart di state lokal
+      const updatedSparepart = { ...pendingScan, stok: stokSesudah }
+      setAllSpareparts(prev => prev.map(sp => sp.id === pendingScan.id ? updatedSparepart : sp))
+      setResult(updatedSparepart)
+
+      // Simpan riwayat scan KELUAR
+      const newScan = {
+        barcode: pendingScan.barcode,
+        status: 'KELUAR',
+        sparepartId: pendingScan.id,
+        sparepartName: pendingScan.nama,
+        scannedAt: new Date().toISOString(),
+        stokSebelum,
+        stokSesudah,
+        jumlah: qty
+      }
+      setRecentScans(prev => [newScan, ...prev].slice(0, 20))
+      try {
+        await scanHistoryService.addScan(newScan)
+      } catch (e) {
+        console.warn('Gagal simpan riwayat scan:', e)
+      }
+
+      soundService.success()
+      toastService.success(`${qty} ${pendingScan.nama} berhasil dikeluarkan`)
+      setPendingScan(null)
+      setBarcodeInput('')
     } catch (e) {
-      console.warn('Gagal simpan riwayat scan:', e)
+      console.error('Gagal proses barang keluar:', e)
+      setError(`Gagal proses barang keluar: ${e.message || 'Terjadi kesalahan'}`)
+      soundService.error()
+    } finally {
+      setIsProcessing(false)
     }
-    setBarcodeInput('')
-    soundService.scan()
+  }
+
+  // Batal proses barang keluar
+  const handleCancelKeluar = () => {
+    setPendingScan(null)
+    setScanQuantity(1)
+    setResult(null)
+    setError('')
+    soundService.click()
   }
 
   const handleScan = (e) => {
@@ -441,7 +477,7 @@ function BarcodeScanner() {
 
   const getCameraErrorMessage = (err) => {
     if (err?.message === 'BROWSER_SECURITY') {
-      return 'Kamera hanya dapat diakses melalui HTTPS atau localhost. Halaman ini sedang dibuka melalui HTTP biasa, sehingga browser memblokir akses kamera. Gunakan https:// atau http://localhost.'
+      return 'Kamera hanya dapat diakses melalui HTTPS atau localhost.'
     }
     if (err?.message === 'PERMISSION_DENIED' || err?.name === 'NotAllowedError') {
       return 'Izin kamera ditolak. Klik ikon gembok 🔒 di address bar browser, lalu izinkan akses kamera, kemudian coba lagi.'
@@ -568,36 +604,6 @@ function BarcodeScanner() {
     }
   }
 
-  // Konfirmasi scan (tandai status OK)
-  const handleConfirmScan = async (scan) => {
-    if (!scan || scan.id === null || scan.id === undefined) return
-    soundService.click()
-    try {
-      await scanHistoryService.updateStatus(scan.id, 'OK')
-      setRecentScans(prev => prev.map(s =>
-        s.id === scan.id ? { ...s, status: 'OK' } : s
-      ))
-      toastService.success('Scan dikonfirmasi')
-    } catch (e) {
-      console.error('Gagal konfirmasi scan:', e)
-      toastService.error('Gagal mengkonfirmasi scan')
-    }
-  }
-
-  // Hapus riwayat scan
-  const handleDeleteScan = async (scan) => {
-    if (!scan || scan.id === null || scan.id === undefined) return
-    soundService.click()
-    try {
-      await scanHistoryService.deleteScan(scan.id)
-      setRecentScans(prev => prev.filter(s => s.id !== scan.id))
-      toastService.success('Riwayat scan dihapus')
-    } catch (e) {
-      console.error('Gagal hapus riwayat scan:', e)
-      toastService.error('Gagal menghapus riwayat scan')
-    }
-  }
-
   const isLowStock = result && result.stok <= result.stokMinimum
 
   return (
@@ -717,16 +723,6 @@ function BarcodeScanner() {
                 </p>
               </div>
             )}
-            {!isSecureContext && (
-              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg">
-                <p className="font-medium">⚠️ Halaman ini bukan secure context</p>
-                <p className="text-xs mt-0.5">
-                  Kamera diblokir browser karena diakses melalui HTTP biasa.
-                  Gunakan <span className="font-semibold">https://</span> atau{' '}
-                  <span className="font-semibold">http://localhost</span>.
-                </p>
-              </div>
-            )}
           </div>
 
           <form onSubmit={handleScan} className="space-y-4">
@@ -820,29 +816,59 @@ function BarcodeScanner() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 pt-3">
-                  <Link
-                    to="/barang-masuk"
-                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
-                  >
-                    <ArrowDownToLine className="w-4 h-4" />
-                    Barang Masuk
-                  </Link>
-                  <Link
-                    to="/barang-keluar"
-                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
-                  >
-                    <ArrowUpFromLine className="w-4 h-4" />
-                    Barang Keluar
-                  </Link>
-                  <button
-                    onClick={() => handlePrintLabel(result)}
-                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
-                  >
-                    <Printer className="w-4 h-4" />
-                    Cetak Label
-                  </button>
-                </div>
+                {pendingScan && (
+                  <div className="pt-3 border-t border-gray-200 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Jumlah Barang Keluar
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={pendingScan.stok}
+                        value={scanQuantity}
+                        onChange={(e) => setScanQuantity(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                        placeholder="Masukkan jumlah..."
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Stok tersedia: <b>{pendingScan.stok} pcs</b>
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleCancelKeluar}
+                        disabled={isProcessing}
+                        className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors disabled:opacity-50"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        onClick={handleConfirmKeluar}
+                        disabled={isProcessing}
+                        className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ArrowUpFromLine className="w-4 h-4" />
+                        )}
+                        {isProcessing ? 'Memproses...' : 'Barang Keluar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {!pendingScan && (
+                  <div className="flex flex-col sm:flex-row gap-2 pt-3">
+                    <button
+                      onClick={() => handlePrintLabel(result)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Cetak Label
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -860,9 +886,11 @@ function BarcodeScanner() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        scan.status === 'FOUND' || scan.status === 'OK' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                        scan.status === 'KELUAR' ? 'bg-red-100 text-red-600' : scan.status === 'FOUND' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
                       }`}>
-                        {scan.status === 'FOUND' || scan.status === 'OK' ? (
+                        {scan.status === 'KELUAR' ? (
+                          <ArrowUpFromLine className="w-4 h-4" />
+                        ) : scan.status === 'FOUND' ? (
                           <CheckCircle2 className="w-4 h-4" />
                         ) : (
                           <AlertTriangle className="w-4 h-4" />
@@ -874,8 +902,11 @@ function BarcodeScanner() {
                           <p className="text-xs text-gray-600">{scan.sparepartName}</p>
                         )}
                         <p className="text-xs text-gray-500">
-                          {scan.status === 'OK' ? 'Dikonfirmasi' : scan.status === 'FOUND' ? 'Ditemukan' : 'Tidak ditemukan'} •{' '}
-                          {new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}
+                          {scan.status === 'KELUAR'
+                            ? `Barang keluar ${scan.jumlah ? `${scan.jumlah} pcs` : ''} • Jam ${new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}`
+                            : scan.status === 'FOUND'
+                              ? `Ditemukan • Jam ${new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}`
+                              : `Tidak ditemukan • Jam ${new Date(scan.scannedAt || scan.timestamp || scan.createdAt).toLocaleTimeString('id-ID')}`}
                         </p>
                         {scan.stokSebelum !== null && scan.stokSesudah !== null && (
                           <p className="text-xs text-gray-500 mt-0.5">
@@ -885,27 +916,10 @@ function BarcodeScanner() {
                       </div>
                     </div>
                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      scan.status === 'OK' ? 'bg-blue-100 text-blue-700' : scan.status === 'FOUND' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      scan.status === 'KELUAR' ? 'bg-red-100 text-red-700' : scan.status === 'FOUND' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
-                      {scan.status === 'OK' ? 'OK' : scan.status === 'FOUND' ? 'FOUND' : 'NOT FOUND'}
+                      {scan.status === 'KELUAR' ? 'KELUAR' : scan.status === 'FOUND' ? 'FOUND' : 'NOT FOUND'}
                     </span>
-                  </div>
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-gray-200">
-                    <button
-                      onClick={() => handleConfirmScan(scan)}
-                      disabled={scan.status === 'OK'}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      OK
-                    </button>
-                    <button
-                      onClick={() => handleDeleteScan(scan)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Hapus
-                    </button>
                   </div>
                 </div>
               ))}
@@ -920,7 +934,8 @@ function BarcodeScanner() {
               <li>• Izinkan akses kamera saat diminta browser</li>
               <li>• Arahkan kamera ke barcode sparepart</li>
               <li>• Scan akan terjadi otomatis saat barcode terdeteksi</li>
-              <li>• Gunakan <span className="font-semibold">HTTPS</span> atau <span className="font-semibold">localhost</span> untuk akses kamera</li>
+              <li>• Masukkan jumlah barang yang akan dikeluarkan</li>
+              <li>• Klik <span className="font-semibold">"Barang Keluar"</span> untuk memproses</li>
               <li>• Gunakan tombol <span className="font-semibold">Senter</span> untuk lampu saat ruangan gelap</li>
               <li>• Gunakan tombol <span className="font-semibold">"Cetak Label"</span> untuk mencetak barcode label</li>
             </ul>
