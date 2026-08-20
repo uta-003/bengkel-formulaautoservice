@@ -822,14 +822,14 @@ function BarcodeScanner() {
 
                 <div className="flex flex-col sm:flex-row gap-2 pt-3">
                   <Link
-                    to={`/barang-masuk?sparepartId=${result.id}`}
+                    to="/barang-masuk"
                     className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
                   >
                     <ArrowDownToLine className="w-4 h-4" />
                     Barang Masuk
                   </Link>
                   <Link
-                    to={`/barang-keluar?sparepartId=${result.id}`}
+                    to="/barang-keluar"
                     className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
                   >
                     <ArrowUpFromLine className="w-4 h-4" />

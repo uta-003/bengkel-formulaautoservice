@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import {
   ArrowUpFromLine,
   Search,
@@ -18,7 +17,6 @@ import { soundService } from '../services/soundService'
 import { formatRupiah } from '../utils/format'
 
 function BarangKeluar() {
-  const [searchParams] = useSearchParams()
   const [spareparts, setSpareparts] = useState([])
   const [transactions, setTransactions] = useState([])
   const [search, setSearch] = useState('')
@@ -72,19 +70,6 @@ function BarangKeluar() {
       window.removeEventListener(db.changeEvent, handleDBChange)
     }
   }, [])
-
-  // Auto-pilih sparepart dari URL query param (dari Barcode Scanner)
-  useEffect(() => {
-    const sparepartId = searchParams.get('sparepartId')
-    if (!sparepartId || spareparts.length === 0) return
-
-    const sp = spareparts.find(s => Number(s.id) === Number(sparepartId))
-    if (sp) {
-      handleSelectSparepart(sp)
-      setShowForm(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, spareparts])
 
   const filteredSpareparts = search
     ? sparepartService.search(search, spareparts)
