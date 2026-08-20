@@ -44,7 +44,6 @@ function BarcodeScanner() {
   const [selectedForPrint, setSelectedForPrint] = useState(null)
   const [showPrintModal, setShowPrintModal] = useState(false)
   const [engineMode, setEngineMode] = useState('auto') // 'auto' | 'html5' | 'zxing'
-  const isSecureContext = typeof window !== 'undefined' ? window.isSecureContext !== false : true
   const inputRef = useRef(null)
   const scannerRef = useRef(null)
   const html5QrCodeRef = useRef(null)
