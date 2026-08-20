@@ -26,7 +26,7 @@ function BarangKeluar() {
     sparepartId: '',
     jumlah: '',
     hargaSatuan: '',
-    tanggal: new Date().toISOString().slice(0, 10),
+    tanggal: new Date().toISOString().slice(0, 16),
     keterangan: ''
   })
   const [error, setError] = useState('')
@@ -107,7 +107,7 @@ function BarangKeluar() {
         sparepartId: Number(form.sparepartId),
         jumlah: Number(form.jumlah),
         hargaSatuan: Number(form.hargaSatuan),
-        tanggal: new Date(form.tanggal).toISOString(),
+        tanggal: form.tanggal,
         keterangan: form.keterangan
       })
       setSuccess('Barang keluar berhasil dicatat!')
@@ -117,7 +117,7 @@ function BarangKeluar() {
         sparepartId: '',
         jumlah: '',
         hargaSatuan: '',
-        tanggal: new Date().toISOString().slice(0, 10),
+        tanggal: new Date().toISOString().slice(0, 16),
         keterangan: ''
       })
       setSelectedSparepart(null)
@@ -289,9 +289,9 @@ function BarangKeluar() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal & Waktu</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   className={inputClass}
                   value={form.tanggal}
                   onChange={(e) => setForm({ ...form, tanggal: e.target.value })}
