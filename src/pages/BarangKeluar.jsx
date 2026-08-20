@@ -107,7 +107,7 @@ function BarangKeluar() {
         sparepartId: Number(form.sparepartId),
         jumlah: Number(form.jumlah),
         hargaSatuan: Number(form.hargaSatuan),
-        tanggal: form.tanggal,
+        tanggal: new Date().toISOString(),
         keterangan: form.keterangan
       })
       setSuccess('Barang keluar berhasil dicatat!')
@@ -117,7 +117,6 @@ function BarangKeluar() {
         sparepartId: '',
         jumlah: '',
         hargaSatuan: '',
-        tanggal: new Date().toISOString().slice(0, 16),
         keterangan: ''
       })
       setSelectedSparepart(null)
@@ -290,12 +289,14 @@ function BarangKeluar() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal & Waktu</label>
-                <input
-                  type="datetime-local"
-                  className={inputClass}
-                  value={form.tanggal}
-                  onChange={(e) => setForm({ ...form, tanggal: e.target.value })}
-                />
+                <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  <br />
+                  <span className="text-xs text-gray-400">
+                    {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                  </span>
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Tanggal & waktu diisi otomatis</p>
               </div>
 
               <div>
