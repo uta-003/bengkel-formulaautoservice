@@ -12,7 +12,29 @@ const DB_KEYS = {
   STOCK_MOVEMENTS: 'stock_movements',
   SCAN_HISTORY: 'scan_history',
   USERS: 'users',
-  AUDIT_LOG: 'audit_log'
+  AUDIT_LOG: 'audit_log',
+  // Service/Repair module
+  CUSTOMERS: 'customers',
+  VEHICLES: 'vehicles',
+  MECHANICS: 'mechanics',
+  SERVICE_PACKAGES: 'service_packages',
+  WORK_ORDERS: 'work_orders',
+  WO_ITEMS: 'wo_items',
+  WO_LABOR: 'wo_labor',
+  WARRANTIES: 'warranties',
+  INVOICES: 'invoices',
+  VEHICLE_QR_CODES: 'vehicle_qr_codes',
+  // Fitur baru: retur, stock opname, pembayaran invoice
+  RETURNS: 'returns',
+  STOCK_OPNAMES: 'stock_opnames',
+  STOCK_OPNAME_ITEMS: 'stock_opname_items',
+  INVOICE_PAYMENTS: 'invoice_payments',
+  // Fitur klaim asuransi
+  INSURANCE_COMPANIES: 'insurance_companies',
+  INSURANCE_CLAIMS: 'insurance_claims',
+  CLAIM_ITEMS: 'claim_items',
+  CLAIM_DOCUMENTS: 'claim_documents',
+  CLAIM_STATUS_HISTORY: 'claim_status_history'
 }
 
 // Mapping field names antara Supabase (snake_case) dan aplikasi (camelCase)
@@ -22,6 +44,7 @@ const FIELD_MAPPINGS = {
     hargaBeli: 'harga_beli',
     hargaJual: 'harga_jual',
     stokMinimum: 'stok_minimum',
+    garansiBulan: 'garansi_bulan',
     createdAt: 'created_at'
   },
   suppliers: {
@@ -53,6 +76,194 @@ const FIELD_MAPPINGS = {
     createdAt: 'created_at'
   },
   audit_log: {
+    createdAt: 'created_at'
+  },
+  // Service/Repair module field mappings
+  customers: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  vehicles: {
+    customerId: 'customer_id',
+    kmTerakhir: 'km_terakhir',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  mechanics: {
+    tarifPerJam: 'tarif_per_jam',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  service_packages: {
+    estimasiDurasi: 'estimasi_durasi',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  work_orders: {
+    nomorWo: 'nomor_wo',
+    customerId: 'customer_id',
+    vehicleId: 'vehicle_id',
+    mechanicId: 'mechanic_id',
+    servicePackageId: 'service_package_id',
+    kmMasuk: 'km_masuk',
+    kmKeluar: 'km_keluar',
+    estimasiBiaya: 'estimasi_biaya',
+    totalBiaya: 'total_biaya',
+    totalLabor: 'total_labor',
+    totalParts: 'total_parts',
+    tanggalMasuk: 'tanggal_masuk',
+    tanggalSelesai: 'tanggal_selesai',
+    tanggalKirim: 'tanggal_kirim',
+    stokDiproses: 'stok_diproses',
+    garansiDibuat: 'garansi_dibuat',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  wo_items: {
+    workOrderId: 'work_order_id',
+    sparepartId: 'sparepart_id',
+    hargaSatuan: 'harga_satuan',
+    createdAt: 'created_at'
+  },
+  wo_labor: {
+    workOrderId: 'work_order_id',
+    mechanicId: 'mechanic_id',
+    tarifPerJam: 'tarif_per_jam',
+    createdAt: 'created_at'
+  },
+  warranties: {
+    customerId: 'customer_id',
+    vehicleId: 'vehicle_id',
+    workOrderId: 'work_order_id',
+    sparepartId: 'sparepart_id',
+    tanggalMulai: 'tanggal_mulai',
+    tanggalBerakhir: 'tanggal_berakhir',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  invoices: {
+    nomorInvoice: 'nomor_invoice',
+    workOrderId: 'work_order_id',
+    customerId: 'customer_id',
+    vehicleId: 'vehicle_id',
+    totalLabor: 'total_labor',
+    totalParts: 'total_parts',
+    totalBiaya: 'total_biaya',
+    grandTotal: 'grand_total',
+    jumlahDibayar: 'jumlah_dibayar',
+    sisaBayar: 'sisa_bayar',
+    tanggalInvoice: 'tanggal_invoice',
+    tanggalBayar: 'tanggal_bayar',
+    metodeBayar: 'metode_bayar',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  vehicle_qr_codes: {
+    vehicleId: 'vehicle_id',
+    qrCode: 'qr_code',
+    qrData: 'qr_data',
+    createdAt: 'created_at'
+  },
+  // Fitur baru: retur, stock opname, pembayaran invoice
+  returns: {
+    nomorRetur: 'nomor_retur',
+    sparepartId: 'sparepart_id',
+    supplierId: 'supplier_id',
+    customerId: 'customer_id',
+    workOrderId: 'work_order_id',
+    transactionId: 'transaction_id',
+    hargaSatuan: 'harga_satuan',
+    tanggalRetur: 'tanggal_retur',
+    tanggalSelesai: 'tanggal_selesai',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  stock_opnames: {
+    kodeOpname: 'kode_opname',
+    namaPetugas: 'nama_petugas',
+    kategoriFilter: 'kategori_filter',
+    totalItem: 'total_item',
+    totalSelisih: 'total_selisih',
+    totalNilaiSelisih: 'total_nilai_selisih',
+    tanggalOpname: 'tanggal_opname',
+    tanggalSelesai: 'tanggal_selesai',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  stock_opname_items: {
+    opnameId: 'opname_id',
+    sparepartId: 'sparepart_id',
+    stokSistem: 'stok_sistem',
+    stokFisik: 'stok_fisik',
+    nilaiSelisih: 'nilai_selisih',
+    sudahDisesuaikan: 'sudah_disesuaikan',
+    createdAt: 'created_at'
+  },
+  invoice_payments: {
+    invoiceId: 'invoice_id',
+    metodeBayar: 'metode_bayar',
+    tanggalBayar: 'tanggal_bayar',
+    createdAt: 'created_at'
+  },
+  // Fitur klaim asuransi
+  insurance_companies: {
+    jenisAsuransi: 'jenis_asuransi',
+    kontakPerson: 'kontak_person',
+    teleponKontak: 'telepon_kontak',
+    nomorRekening: 'nomor_rekening',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  insurance_claims: {
+    nomorKlaim: 'nomor_klaim',
+    insuranceCompanyId: 'insurance_company_id',
+    customerId: 'customer_id',
+    vehicleId: 'vehicle_id',
+    workOrderId: 'work_order_id',
+    invoiceId: 'invoice_id',
+    nomorPolis: 'nomor_polis',
+    namaTertanggung: 'nama_tertanggung',
+    jenisKlaim: 'jenis_klaim',
+    tanggalKejadian: 'tanggal_kejadian',
+    lokasiKejadian: 'lokasi_kejadian',
+    deskripsiKerusakan: 'deskripsi_kerusakan',
+    estimasiBiaya: 'estimasi_biaya',
+    approvedAmount: 'approved_amount',
+    actualCost: 'actual_cost',
+    surveyorName: 'surveyor_name',
+    surveyDate: 'survey_date',
+    surveyResult: 'survey_result',
+    rejectionReason: 'rejection_reason',
+    paymentMethod: 'payment_method',
+    paymentReference: 'payment_reference',
+    submittedAt: 'submitted_at',
+    approvedAt: 'approved_at',
+    completedAt: 'completed_at',
+    invoicedAt: 'invoiced_at',
+    paidAt: 'paid_at',
+    closedAt: 'closed_at',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  },
+  claim_items: {
+    claimId: 'claim_id',
+    sparepartId: 'sparepart_id',
+    hargaSatuan: 'harga_satuan',
+    createdAt: 'created_at'
+  },
+  claim_documents: {
+    claimId: 'claim_id',
+    namaDokumen: 'nama_dokumen',
+    tipeDokumen: 'tipe_dokumen',
+    urlDokumen: 'url_dokumen',
+    uploadedBy: 'uploaded_by',
+    createdAt: 'created_at'
+  },
+  claim_status_history: {
+    claimId: 'claim_id',
+    statusFrom: 'status_from',
+    statusTo: 'status_to',
+    changedBy: 'changed_by',
     createdAt: 'created_at'
   }
 }
@@ -95,7 +306,29 @@ const LS_KEYS = {
   [DB_KEYS.STOCK_MOVEMENTS]: `${LS_PREFIX}stock_movements_data`,
   [DB_KEYS.SCAN_HISTORY]: `${LS_PREFIX}scan_history_data`,
   [DB_KEYS.USERS]: `${LS_PREFIX}users_data`,
-  [DB_KEYS.AUDIT_LOG]: `${LS_PREFIX}audit_log_data`
+  [DB_KEYS.AUDIT_LOG]: `${LS_PREFIX}audit_log_data`,
+  // Service/Repair module
+  [DB_KEYS.CUSTOMERS]: `${LS_PREFIX}customers_data`,
+  [DB_KEYS.VEHICLES]: `${LS_PREFIX}vehicles_data`,
+  [DB_KEYS.MECHANICS]: `${LS_PREFIX}mechanics_data`,
+  [DB_KEYS.SERVICE_PACKAGES]: `${LS_PREFIX}service_packages_data`,
+  [DB_KEYS.WORK_ORDERS]: `${LS_PREFIX}work_orders_data`,
+  [DB_KEYS.WO_ITEMS]: `${LS_PREFIX}wo_items_data`,
+  [DB_KEYS.WO_LABOR]: `${LS_PREFIX}wo_labor_data`,
+  [DB_KEYS.WARRANTIES]: `${LS_PREFIX}warranties_data`,
+  [DB_KEYS.INVOICES]: `${LS_PREFIX}invoices_data`,
+  [DB_KEYS.VEHICLE_QR_CODES]: `${LS_PREFIX}vehicle_qr_codes_data`,
+  // Fitur baru
+  [DB_KEYS.RETURNS]: `${LS_PREFIX}returns_data`,
+  [DB_KEYS.STOCK_OPNAMES]: `${LS_PREFIX}stock_opnames_data`,
+  [DB_KEYS.STOCK_OPNAME_ITEMS]: `${LS_PREFIX}stock_opname_items_data`,
+  [DB_KEYS.INVOICE_PAYMENTS]: `${LS_PREFIX}invoice_payments_data`,
+  // Klaim asuransi
+  [DB_KEYS.INSURANCE_COMPANIES]: `${LS_PREFIX}insurance_companies_data`,
+  [DB_KEYS.INSURANCE_CLAIMS]: `${LS_PREFIX}insurance_claims_data`,
+  [DB_KEYS.CLAIM_ITEMS]: `${LS_PREFIX}claim_items_data`,
+  [DB_KEYS.CLAIM_DOCUMENTS]: `${LS_PREFIX}claim_documents_data`,
+  [DB_KEYS.CLAIM_STATUS_HISTORY]: `${LS_PREFIX}claim_status_history_data`
 }
 
 const PENDING_QUEUE_KEY = `${LS_PREFIX}pending_sync`
@@ -145,6 +378,12 @@ function subscribeToTable(table) {
       })
       .subscribe((status) => {
         console.log(`[Realtime] Subscribed to ${table}: ${status}`)
+        // Update indikator status koneksi berdasarkan status channel realtime
+        if (status === 'SUBSCRIBED') {
+          setSupabaseAvailable()
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setSupabaseUnavailable(new Error(`Realtime channel ${status}`))
+        }
       })
     realtimeChannels.push(channel)
   } catch (error) {
@@ -163,7 +402,29 @@ function initRealtime() {
     DB_KEYS.TRANSACTIONS,
     DB_KEYS.STOCK_MOVEMENTS,
     DB_KEYS.SCAN_HISTORY,
-    DB_KEYS.USERS
+    DB_KEYS.USERS,
+    // Service/Repair module
+    DB_KEYS.CUSTOMERS,
+    DB_KEYS.VEHICLES,
+    DB_KEYS.MECHANICS,
+    DB_KEYS.SERVICE_PACKAGES,
+    DB_KEYS.WORK_ORDERS,
+    DB_KEYS.WO_ITEMS,
+    DB_KEYS.WO_LABOR,
+    DB_KEYS.WARRANTIES,
+    DB_KEYS.INVOICES,
+    DB_KEYS.VEHICLE_QR_CODES,
+    // Fitur baru
+    DB_KEYS.RETURNS,
+    DB_KEYS.STOCK_OPNAMES,
+    DB_KEYS.STOCK_OPNAME_ITEMS,
+    DB_KEYS.INVOICE_PAYMENTS,
+    // Klaim asuransi
+    DB_KEYS.INSURANCE_COMPANIES,
+    DB_KEYS.INSURANCE_CLAIMS,
+    DB_KEYS.CLAIM_ITEMS,
+    DB_KEYS.CLAIM_DOCUMENTS,
+    DB_KEYS.CLAIM_STATUS_HISTORY
   ]
   tables.forEach(subscribeToTable)
 
@@ -554,6 +815,27 @@ function queuePendingOperation(table, operation, data) {
   setPendingOps(ops)
 }
 
+// Cek langsung koneksi ke Supabase (dipakai untuk indikator wifi saat startup)
+async function checkConnection() {
+  try {
+    const { error } = await supabase
+      .from(DB_KEYS.USERS)
+      .select('id', { head: true, count: 'exact' })
+
+    if (error && isNetworkError(error)) {
+      setSupabaseUnavailable(error)
+      return false
+    }
+
+    // Error setup (tabel belum ada dll) tetap dianggap online karena server terjangkau
+    setSupabaseAvailable()
+    return true
+  } catch (error) {
+    setSupabaseUnavailable(error)
+    return false
+  }
+}
+
 // Jalankan operasi pending saat koneksi pulih
 async function flushPendingOps() {
   const ops = getPendingOps()
@@ -604,5 +886,6 @@ export const db = {
   removeAllRealtime,
   flushPendingOps,
   getPendingOps,
-  setPendingOps
+  setPendingOps,
+  checkConnection
 }

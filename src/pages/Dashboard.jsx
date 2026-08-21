@@ -13,11 +13,17 @@ import {
   PieChart,
   Gauge,
   ScanBarcode,
-  RefreshCw
+  RefreshCw,
+  ClipboardList,
+  CheckCircle2,
+  Users,
+  Car
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
 import { supplierService } from '../services/supplierService'
+import { workOrderService } from '../services/workOrderService'
+import { invoiceService } from '../services/invoiceService'
 import { db } from '../services/database'
 import { formatRupiah } from '../utils/format'
 
@@ -28,6 +34,9 @@ function Dashboard() {
   const [recentTransactions, setRecentTransactions] = useState([])
   const [supplierCount, setSupplierCount] = useState(0)
   const [categoryStats, setCategoryStats] = useState([])
+  const [woStats, setWoStats] = useState(null)
+  const [invoiceStats, setInvoiceStats] = useState(null)
+  const [recentWorkOrders, setRecentWorkOrders] = useState([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
 
@@ -36,11 +45,14 @@ function Dashboard() {
 
     const loadData = async () => {
       try {
-        const [spareparts, suppliers, transStatsData, recentTransData] = await Promise.all([
+        const [spareparts, suppliers, transStatsData, recentTransData, woStatsData, invData, recentWoData] = await Promise.all([
           sparepartService.getAll(),
           supplierService.getAll(),
           transactionService.getStats(),
-          transactionService.getRecentTransactions(5)
+          transactionService.getRecentTransactions(5),
+          workOrderService.getStats(),
+          invoiceService.getAll(),
+          workOrderService.getRecent(5)
         ])
 
         if (!isMounted) return
@@ -51,6 +63,13 @@ function Dashboard() {
         setSupplierCount((suppliers || []).length)
         setTransStats(transStatsData)
         setRecentTransactions(recentTransData)
+        setWoStats(woStatsData)
+        setInvoiceStats({
+          totalRevenue: invoiceService.getTotalRevenue(invData || []),
+          totalOutstanding: invoiceService.getTotalOutstanding(invData || []),
+          totalInvoices: (invData || []).length
+        })
+        setRecentWorkOrders(recentWoData || [])
       } catch (err) {
         if (isMounted) {
           setError(err.message)
@@ -66,11 +85,15 @@ function Dashboard() {
     // Listen untuk perubahan data realtime dari perangkat lain
     const handleDBChange = (e) => {
       const { table: changedTable } = e.detail || {}
-      // Refresh dashboard saat spareparts, suppliers, atau transactions berubah
+      // Refresh dashboard saat spareparts, suppliers, transactions, work orders, atau invoices berubah
       if (!changedTable ||
           changedTable === db.keys.SPAREPARTS ||
           changedTable === db.keys.SUPPLIERS ||
-          changedTable === db.keys.TRANSACTIONS) {
+          changedTable === db.keys.TRANSACTIONS ||
+          changedTable === db.keys.WORK_ORDERS ||
+          changedTable === db.keys.INVOICES ||
+          changedTable === db.keys.WO_ITEMS ||
+          changedTable === db.keys.WO_LABOR) {
         loadData()
       }
     }
@@ -105,7 +128,7 @@ function Dashboard() {
     )
   }
 
-  if (isLoading || !stats || !transStats) {
+  if (isLoading || !stats || !transStats || !woStats || !invoiceStats) {
     return (
       <div className="space-y-6">
         <div className="rounded-2xl bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 p-6 sm:p-8">
@@ -186,6 +209,34 @@ function Dashboard() {
       icon: TrendingUp,
       color: 'bg-gradient-to-br from-brand-700 to-brand-400',
       link: '/laporan'
+    },
+    {
+      title: 'Work Order Aktif',
+      value: woStats.totalWO,
+      icon: ClipboardList,
+      color: 'bg-gradient-to-br from-blue-500 to-blue-700',
+      link: '/work-orders'
+    },
+    {
+      title: 'WO Selesai',
+      value: woStats.totalCompleted,
+      icon: CheckCircle2,
+      color: 'bg-gradient-to-br from-green-500 to-green-700',
+      link: '/work-orders'
+    },
+    {
+      title: 'Pendapatan Faktur',
+      value: formatRupiah(invoiceStats.totalRevenue),
+      icon: Wallet,
+      color: 'bg-gradient-to-br from-purple-500 to-purple-700',
+      link: '/invoices'
+    },
+    {
+      title: 'Belum Dibayar',
+      value: formatRupiah(invoiceStats.totalOutstanding),
+      icon: AlertTriangle,
+      color: 'bg-gradient-to-br from-yellow-500 to-orange-600',
+      link: '/invoices'
     }
   ]
 
@@ -198,10 +249,10 @@ function Dashboard() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Gauge className="w-5 h-5 sm:w-6 sm:h-6 text-brand-100" />
-              <span className="text-[10px] sm:text-xs font-semibold text-brand-100 uppercase tracking-widest">Formula Auto Service</span>
+              <span className="text-[10px] sm:text-xs font-semibold text-brand-100 uppercase tracking-widest">FAS</span>
             </div>
             <h1 className="text-xl sm:text-3xl font-bold">Dashboard</h1>
-            <p className="text-brand-100 mt-1 text-sm sm:text-base">Ringkasan kondisi inventori sparepart</p>
+            <p className="text-brand-100 mt-1 text-sm sm:text-base">Ringkasan kondisi inventori & servis</p>
           </div>
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 w-fit">
             <div className="text-right">
@@ -270,6 +321,62 @@ function Dashboard() {
             <div className="min-w-0">
               <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate-mobile">Scan Barcode</p>
               <p className="hidden sm:block text-xs text-gray-500">Cari sparepart</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/work-orders"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors shrink-0">
+              <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 group-hover:text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate-mobile">Work Order</p>
+              <p className="hidden sm:block text-xs text-gray-500">Kelola servis</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/customers"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-50 rounded-lg flex items-center justify-center group-hover:bg-green-500 group-hover:text-white transition-colors shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 group-hover:text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate-mobile">Pelanggan</p>
+              <p className="hidden sm:block text-xs text-gray-500">Kelola data</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/invoices"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-50 rounded-lg flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors shrink-0">
+              <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 group-hover:text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate-mobile">Faktur</p>
+              <p className="hidden sm:block text-xs text-gray-500">Kelola pembayaran</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          to="/vehicles"
+          className="group bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 hover:border-brand-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-50 rounded-lg flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-white transition-colors shrink-0">
+              <Car className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 group-hover:text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate-mobile">Kendaraan</p>
+              <p className="hidden sm:block text-xs text-gray-500">Kelola data</p>
             </div>
           </div>
         </Link>
@@ -365,6 +472,41 @@ function Dashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Recent Work Orders */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">Work Order Terbaru</h2>
+          <Link to="/work-orders" className="text-xs sm:text-sm text-brand-600 hover:text-brand-700 font-medium">
+            Lihat Semua
+          </Link>
+        </div>
+        {recentWorkOrders.length === 0 ? (
+          <p className="text-gray-500 text-sm">Belum ada work order.</p>
+        ) : (
+          <div className="space-y-3">
+            {recentWorkOrders.map((wo) => (
+              <div key={wo.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <ClipboardList className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-800 text-sm truncate-mobile">{wo.nomorWo}</p>
+                    <p className="text-xs text-gray-500 truncate-mobile">
+                      {wo.customer?.nama || '-'} • {wo.vehicle ? wo.vehicle.platNomor : '-'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0 ml-2">
+                  <p className="text-sm font-semibold text-gray-800">{formatRupiah(wo.totalBiaya || 0)}</p>
+                  <p className="text-xs text-gray-500">{wo.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Distribusi Stok per Kategori */}

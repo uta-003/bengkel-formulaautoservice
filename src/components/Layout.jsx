@@ -24,8 +24,18 @@ import {
   ChevronsRight,
   Wifi,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Wrench,
+  ClipboardList,
+  Shield,
+  FileText,
+  Undo2,
+  ClipboardCheck,
+  ShieldCheck
 } from 'lucide-react'
+import NotificationBell from './NotificationBell'
+import { ThemeQuickToggle } from './ThemePicker'
 
 function Layout() {
   const navigate = useNavigate()
@@ -122,6 +132,18 @@ function Layout() {
     { to: '/supplier', icon: Truck, label: 'Manajemen Supplier', permission: Permissions.VIEW_SPAREPART },
     { to: '/laporan', icon: BarChart3, label: 'Laporan & Analisis', permission: Permissions.VIEW_REPORTS },
     { to: '/barcode', icon: ScanBarcode, label: 'Barcode Scanner', permission: Permissions.VIEW_SPAREPART },
+    { to: '/retur', icon: Undo2, label: 'Retur Barang', permission: Permissions.VIEW_SPAREPART },
+    { to: '/stock-opname', icon: ClipboardCheck, label: 'Stock Opname', permission: Permissions.VIEW_SPAREPART },
+    { to: '/klaim-asuransi', icon: ShieldCheck, label: 'Klaim Asuransi', permission: Permissions.VIEW_SPAREPART },
+    // Service/Repair module
+    { to: '/customers', icon: Users, label: 'Pelanggan', permission: Permissions.VIEW_CUSTOMERS },
+    { to: '/vehicles', icon: Car, label: 'Kendaraan', permission: Permissions.VIEW_VEHICLES },
+    { to: '/mechanics', icon: Wrench, label: 'Teknisi', permission: Permissions.VIEW_MECHANICS },
+    { to: '/work-orders', icon: ClipboardList, label: 'Work Order', permission: Permissions.VIEW_WORK_ORDERS },
+    { to: '/service-packages', icon: Package, label: 'Service Package', permission: Permissions.VIEW_SERVICE_PACKAGES },
+    { to: '/warranties', icon: Shield, label: 'Garansi', permission: Permissions.VIEW_WARRANTIES },
+    { to: '/invoices', icon: FileText, label: 'Faktur', permission: Permissions.VIEW_INVOICES },
+    // Pengaturan di posisi paling bawah
     { to: '/pengaturan', icon: Settings, label: 'Pengaturan', permission: Permissions.ACCESS_SETTINGS }
   ].filter(item => !item.permission || rbacService.hasPermission(role, item.permission))
 
@@ -132,7 +154,7 @@ function Layout() {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-[#1a0505] via-[#200606] to-[#120303] text-white transform transition-all duration-300 lg:translate-x-0 ${
+        className={`sidebar-bg fixed inset-y-0 left-0 z-50 flex flex-col text-white transform transition-all duration-300 lg:translate-x-0 ${
           sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'
         } ${
           sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
@@ -144,14 +166,17 @@ function Layout() {
 
         {/* Header sidebar */}
         <div className={`relative flex items-center gap-3 px-6 py-5 border-b border-sidebar-border ${sidebarCollapsed ? 'lg:px-5 lg:justify-center' : ''}`}>
-          <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center shadow-lg shadow-brand-600/30 shrink-0">
-            <Car className="w-6 h-6" />
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="Logo FAS"
+            className="w-10 h-10 shrink-0 rounded-lg shadow-lg shadow-brand-600/30 ring-1 ring-white/20"
+            draggable="false"
+          />
           <div className={`flex-1 min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
             <h1 className="font-bold text-lg leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-brand-200">
-              Formula Auto
+              FAS
             </h1>
-            <p className="text-[11px] text-brand-300/90 font-medium">Service Management</p>
+            <p className="text-[11px] text-brand-300/90 font-medium">Management</p>
           </div>
           <button
             className="lg:hidden ml-auto text-slate-400 hover:text-white shrink-0 touch-target"
@@ -206,7 +231,7 @@ function Layout() {
                     {lowStockCount}
                   </span>
                   {sidebarCollapsed && (
-                    <span className="hidden lg:inline-flex absolute top-1 right-1 w-2.5 h-2.5 bg-brand-500 rounded-full ring-2 ring-[#200606]" />
+                    <span className="hidden lg:inline-flex absolute top-1 right-1 w-2.5 h-2.5 bg-brand-500 rounded-full ring-2 ring-[var(--color-sidebar)]" />
                   )}
                 </>
               )}
@@ -214,7 +239,7 @@ function Layout() {
           ))}
         </nav>
 
-        <div className={`p-4 border-t border-sidebar-border space-y-2 bg-gradient-to-r from-[#120303]/90 to-[#1a0505]/90 backdrop-blur-sm ${sidebarCollapsed ? 'lg:px-2 lg:flex lg:flex-col lg:items-center lg:space-y-2' : ''}`}>
+        <div className={`sidebar-footer-bg p-4 border-t border-sidebar-border space-y-2 backdrop-blur-sm ${sidebarCollapsed ? 'lg:px-2 lg:flex lg:flex-col lg:items-center lg:space-y-2' : ''}`}>
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? 'Logout' : undefined}
@@ -266,10 +291,16 @@ function Layout() {
             <div className="flex items-center gap-2">
               <div className="hidden lg:flex items-center gap-2">
                 <Gauge className="w-5 h-5 text-brand-600" />
-                <h2 className="text-lg font-semibold text-gray-800">Formula Auto Service</h2>
+                <h2 className="text-lg font-semibold text-gray-800">FAS</h2>
               </div>
-              <div className="lg:hidden">
-                <h2 className="text-base sm:text-lg font-bold text-gray-800 truncate-mobile max-w-[140px] sm:max-w-none">Formula Auto</h2>
+              <div className="lg:hidden flex items-center gap-2">
+                <img
+                  src="/favicon.svg"
+                  alt="Logo FAS"
+                  className="w-7 h-7 shrink-0 rounded-md shadow-sm"
+                  draggable="false"
+                />
+                <h2 className="text-base sm:text-lg font-bold text-gray-800 truncate-mobile max-w-[130px] sm:max-w-none">FAS</h2>
               </div>
               <span className="hidden sm:inline-flex items-center px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-semibold border border-brand-100">
                 VCAR-2026
@@ -290,6 +321,10 @@ function Layout() {
               )}
               {syncStatus === 'online' ? 'Tersinkron' : 'Offline'}
             </div>
+            {/* Ganti tema warna cepat */}
+            <ThemeQuickToggle />
+            {/* Notifikasi */}
+            <NotificationBell />
             {/* Refresh button */}
             <button
               onClick={handleRefresh}
@@ -318,7 +353,7 @@ function Layout() {
 
         {/* Footer - hidden on mobile (diganti bottom nav) */}
         <footer className="hidden lg:block px-8 py-4 text-center text-xs text-gray-400 border-t border-gray-100">
-          <p>© 2026 Formula Auto Service. Semua hak dilindungi.</p>
+          <p>© 2026 FAS. Semua hak dilindungi.</p>
         </footer>
       </div>
 

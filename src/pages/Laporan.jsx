@@ -11,10 +11,14 @@ import {
   CalendarDays,
   CalendarRange,
   CalendarClock,
-  Calendar
+  Calendar,
+  Wrench,
+  FileText
 } from 'lucide-react'
 import { sparepartService } from '../services/sparepartService'
 import { transactionService } from '../services/transactionService'
+import { workOrderService, WO_STATUS } from '../services/workOrderService'
+import { invoiceService, INVOICE_STATUS } from '../services/invoiceService'
 import { db } from '../services/database'
 import { toastService } from '../services/toastService'
 import { soundService } from '../services/soundService'
@@ -50,6 +54,7 @@ function Laporan() {
   const [topSpareparts, setTopSpareparts] = useState([])
   const [stockMovements, setStockMovements] = useState([])
   const [categoryStats, setCategoryStats] = useState([])
+  const [serviceStats, setServiceStats] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -98,6 +103,53 @@ function Laporan() {
       setPeriodStats(periodStatsData)
       setTopSpareparts(topSpareparts)
       setStockMovements(movements)
+
+      // Data modul service: work orders & invoices dalam periode yang sama
+      const [workOrders, invoices] = await Promise.all([
+        workOrderService.getAll(),
+        invoiceService.getAll()
+      ])
+      const periodStart = period === 'harian'
+        ? new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate(), 0, 0, 0)
+        : period === 'mingguan'
+          ? new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate() - ((reportDate.getDay() + 6) % 7), 0, 0, 0)
+          : period === 'bulanan'
+            ? new Date(reportDate.getFullYear(), reportDate.getMonth(), 1, 0, 0, 0)
+            : new Date(reportDate.getFullYear(), 0, 1, 0, 0, 0)
+      const periodEnd = period === 'harian'
+        ? new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate(), 23, 59, 59, 999)
+        : period === 'mingguan'
+          ? new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
+          : period === 'bulanan'
+            ? new Date(reportDate.getFullYear(), reportDate.getMonth() + 1, 0, 23, 59, 59, 999)
+            : new Date(reportDate.getFullYear(), 11, 31, 23, 59, 59, 999)
+
+      const woInPeriod = workOrders.filter(wo => {
+        const d = new Date(wo.tanggalMasuk)
+        return d >= periodStart && d <= periodEnd
+      })
+      const woSelesai = woInPeriod.filter(wo => wo.status === WO_STATUS.COMPLETED || wo.status === WO_STATUS.DELIVERED)
+      const invInPeriod = invoices.filter(inv => {
+        const d = new Date(inv.tanggalInvoice)
+        return d >= periodStart && d <= periodEnd
+      })
+      const invLunas = invInPeriod.filter(inv => inv.status === INVOICE_STATUS.PAID)
+      const invSebagian = invInPeriod.filter(inv => inv.status === INVOICE_STATUS.PARTIAL)
+      const invBelum = invInPeriod.filter(inv => inv.status === INVOICE_STATUS.PENDING)
+
+      setServiceStats({
+        totalWO: woInPeriod.length,
+        woSelesai: woSelesai.length,
+        pendapatanLabor: woSelesai.reduce((sum, wo) => sum + Number(wo.totalLabor || 0), 0),
+        pendapatanParts: woSelesai.reduce((sum, wo) => sum + Number(wo.totalParts || 0), 0),
+        totalNilaiWO: woSelesai.reduce((sum, wo) => sum + Number(wo.totalBiaya || 0), 0),
+        totalInvoice: invInPeriod.length,
+        nilaiLunas: invLunas.reduce((sum, inv) => sum + Number(inv.grandTotal || 0), 0),
+        nilaiSebagian: invSebagian.reduce((sum, inv) => sum + Number(inv.jumlahDibayar || 0), 0),
+        nilaiBelum: invBelum.reduce((sum, inv) => sum + Number(inv.sisaBayar ?? inv.grandTotal ?? 0), 0),
+        totalDiterima: invLunas.reduce((sum, inv) => sum + Number(inv.grandTotal || 0), 0) +
+          invSebagian.reduce((sum, inv) => sum + Number(inv.jumlahDibayar || 0), 0)
+      })
     } catch (error) {
       console.error('Failed to load report data:', error)
       toastService.error('Gagal memuat data laporan')
@@ -115,7 +167,9 @@ function Laporan() {
       if (!changedTable ||
           changedTable === db.keys.SPAREPARTS ||
           changedTable === db.keys.TRANSACTIONS ||
-          changedTable === db.keys.STOCK_MOVEMENTS) {
+          changedTable === db.keys.STOCK_MOVEMENTS ||
+          changedTable === db.keys.WORK_ORDERS ||
+          changedTable === db.keys.INVOICES) {
         loadData()
       }
     }
@@ -127,7 +181,7 @@ function Laporan() {
     }
   }, [loadData])
 
-  if (isLoading || !stats || !transStats || !periodStats || !reportData) {
+  if (isLoading || !stats || !transStats || !periodStats || !reportData || !serviceStats) {
     return (
       <div className="flex items-center justify-center py-32">
         <div className="text-center">
@@ -720,6 +774,45 @@ function Laporan() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Pendapatan Servis & Faktur (modul service) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-brand-600" />
+            Pendapatan Servis & Faktur
+          </h2>
+          <span className="text-xs text-gray-400 hidden sm:block">{getPeriodTitle()}</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 sm:p-6">
+          <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-blue-600 font-medium flex items-center gap-1">
+              <Wrench className="w-3 h-3" /> Work Order Selesai
+            </p>
+            <p className="text-lg sm:text-xl font-bold text-blue-800 mt-1">{serviceStats.woSelesai} <span className="text-xs font-normal text-blue-500">/ {serviceStats.totalWO} WO</span></p>
+            <p className="text-[10px] sm:text-xs text-blue-500 mt-1">Nilai: {formatRupiah(serviceStats.totalNilaiWO)}</p>
+          </div>
+          <div className="bg-indigo-50 rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-indigo-600 font-medium">Pendapatan Jasa (Labor)</p>
+            <p className="text-lg sm:text-xl font-bold text-indigo-800 mt-1">{formatRupiah(serviceStats.pendapatanLabor)}</p>
+            <p className="text-[10px] sm:text-xs text-indigo-500 mt-1">Parts: {formatRupiah(serviceStats.pendapatanParts)}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-green-600 font-medium flex items-center gap-1">
+              <Wallet className="w-3 h-3" /> Pembayaran Diterima
+            </p>
+            <p className="text-lg sm:text-xl font-bold text-green-800 mt-1">{formatRupiah(serviceStats.totalDiterima)}</p>
+            <p className="text-[10px] sm:text-xs text-green-500 mt-1">{serviceStats.totalInvoice} invoice periode ini</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-yellow-600 font-medium flex items-center gap-1">
+              <FileText className="w-3 h-3" /> Piutang Belum Dibayar
+            </p>
+            <p className="text-lg sm:text-xl font-bold text-yellow-800 mt-1">{formatRupiah(serviceStats.nilaiBelum)}</p>
+            <p className="text-[10px] sm:text-xs text-yellow-500 mt-1">Sebagian: {formatRupiah(serviceStats.nilaiSebagian)}</p>
+          </div>
         </div>
       </div>
 

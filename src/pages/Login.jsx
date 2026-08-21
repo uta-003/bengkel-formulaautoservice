@@ -29,7 +29,7 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#a70000] via-[#d60000] to-[#660000] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="login-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* Decorative circles */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/10 rounded-full blur-3xl pointer-events-none" />
@@ -37,11 +37,14 @@ function Login() {
       <div className="w-full max-w-md relative">
         <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-black/20 p-8 sm:p-10">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-600/40">
-              <Car className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-            </div>
+            <img
+              src="/favicon.svg"
+              alt="Logo FAS"
+              className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-2xl shadow-lg shadow-brand-600/40 ring-1 ring-black/5"
+              draggable="false"
+            />
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400">
-              Formula Auto Service
+              FAS
             </h1>
             <p className="text-gray-500 mt-2 flex items-center justify-center gap-1.5 text-sm">
               <Gauge className="w-4 h-4 text-brand-500" />

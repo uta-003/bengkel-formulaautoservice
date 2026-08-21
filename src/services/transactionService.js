@@ -17,6 +17,12 @@ function buildMaps(spareparts, suppliers) {
   }
 }
 
+// Helper: jumlahkan field numerik dengan konversi Number() eksplisit
+// mencegah string concatenation saat data dari DB/localStorage berupa string
+function sumBy(items, field) {
+  return items.reduce((sum, t) => sum + Number(t[field] || 0), 0)
+}
+
 // Cache untuk data yang sudah di-join (transaksi + sparepart + supplier)
 // TTL sangat pendek (500ms) hanya untuk anti-spam, data tetap selalu fresh dari Supabase
 let joinedCache = null
@@ -29,8 +35,16 @@ export const transactionService = {
     const sparepart = await db.getById(db.keys.SPAREPARTS, data.sparepartId)
     if (!sparepart) throw new Error('Sparepart tidak ditemukan')
 
+    // Konversi eksplisit ke Number agar tidak terjadi string concatenation
+    const stokLama = Number(sparepart.stok || 0)
+    const jumlah = Number(data.jumlah || 0)
+    if (!Number.isFinite(jumlah) || jumlah <= 0) {
+      throw new Error('Jumlah barang masuk harus lebih dari 0')
+    }
+    const hargaSatuan = Number(data.hargaSatuan ?? sparepart.hargaBeli ?? 0)
+
     // Update stok sparepart
-    const newStok = sparepart.stok + data.jumlah
+    const newStok = stokLama + jumlah
     await db.update(db.keys.SPAREPARTS, sparepart.id, { stok: newStok })
 
     // Buat transaksi dengan nomor acak
@@ -45,9 +59,9 @@ export const transactionService = {
       nomor,
       sparepartId: sparepart.id,
       supplierId: data.supplierId || sparepart.supplierId,
-      jumlah: data.jumlah,
-      hargaSatuan: data.hargaSatuan || sparepart.hargaBeli,
-      total: (data.hargaSatuan || sparepart.hargaBeli) * data.jumlah,
+      jumlah,
+      hargaSatuan,
+      total: hargaSatuan * jumlah,
       tanggal: data.tanggal || new Date().toISOString(),
       keterangan: data.keterangan || '',
       createdAt: new Date().toISOString()
@@ -57,8 +71,8 @@ export const transactionService = {
     await db.insert(db.keys.STOCK_MOVEMENTS, {
       sparepartId: sparepart.id,
       tipe: 'MASUK',
-      jumlah: data.jumlah,
-      stokSebelum: sparepart.stok,
+      jumlah,
+      stokSebelum: stokLama,
       stokSesudah: newStok,
       tanggal: transaction.tanggal,
       referensiId: transaction.id,
@@ -73,12 +87,20 @@ export const transactionService = {
   async barangKeluar(data) {
     const sparepart = await db.getById(db.keys.SPAREPARTS, data.sparepartId)
     if (!sparepart) throw new Error('Sparepart tidak ditemukan')
-    if (sparepart.stok < data.jumlah) {
-      throw new Error(`Stok tidak mencukupi. Stok tersedia: ${sparepart.stok}`)
+
+    // Konversi eksplisit ke Number agar perbandingan & pengurangan akurat
+    const stokLama = Number(sparepart.stok || 0)
+    const jumlah = Number(data.jumlah || 0)
+    if (!Number.isFinite(jumlah) || jumlah <= 0) {
+      throw new Error('Jumlah barang keluar harus lebih dari 0')
     }
+    if (stokLama < jumlah) {
+      throw new Error(`Stok tidak mencukupi. Stok tersedia: ${stokLama}`)
+    }
+    const hargaSatuan = Number(data.hargaSatuan ?? sparepart.hargaJual ?? 0)
 
     // Update stok sparepart
-    const newStok = sparepart.stok - data.jumlah
+    const newStok = stokLama - jumlah
     await db.update(db.keys.SPAREPARTS, sparepart.id, { stok: newStok })
 
     // Buat transaksi
@@ -93,9 +115,9 @@ export const transactionService = {
       nomor,
       sparepartId: sparepart.id,
       supplierId: sparepart.supplierId,
-      jumlah: data.jumlah,
-      hargaSatuan: data.hargaSatuan || sparepart.hargaJual,
-      total: (data.hargaSatuan || sparepart.hargaJual) * data.jumlah,
+      jumlah,
+      hargaSatuan,
+      total: hargaSatuan * jumlah,
       tanggal: data.tanggal || new Date().toISOString(),
       keterangan: data.keterangan || '',
       createdAt: new Date().toISOString()
@@ -105,8 +127,8 @@ export const transactionService = {
     await db.insert(db.keys.STOCK_MOVEMENTS, {
       sparepartId: sparepart.id,
       tipe: 'KELUAR',
-      jumlah: data.jumlah,
-      stokSebelum: sparepart.stok,
+      jumlah,
+      stokSebelum: stokLama,
       stokSesudah: newStok,
       tanggal: transaction.tanggal,
       referensiId: transaction.id,
@@ -169,10 +191,10 @@ export const transactionService = {
     const transactions = await this.getAll()
     const masuk = transactions.filter(t => t.tipe === 'MASUK')
     const keluar = transactions.filter(t => t.tipe === 'KELUAR')
-    const totalMasuk = masuk.reduce((sum, t) => sum + t.total, 0)
-    const totalKeluar = keluar.reduce((sum, t) => sum + t.total, 0)
-    const totalQtyMasuk = masuk.reduce((sum, t) => sum + t.jumlah, 0)
-    const totalQtyKeluar = keluar.reduce((sum, t) => sum + t.jumlah, 0)
+    const totalMasuk = sumBy(masuk, 'total')
+    const totalKeluar = sumBy(keluar, 'total')
+    const totalQtyMasuk = sumBy(masuk, 'jumlah')
+    const totalQtyKeluar = sumBy(keluar, 'jumlah')
 
     return {
       totalTransaksi: transactions.length,
@@ -198,10 +220,10 @@ export const transactionService = {
       return {
         bulan: month,
         bulanAngka: index + 1,
-        masuk: masuk.reduce((sum, t) => sum + t.total, 0),
-        keluar: keluar.reduce((sum, t) => sum + t.total, 0),
-        qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-        qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0)
+        masuk: sumBy(masuk, 'total'),
+        keluar: sumBy(keluar, 'total'),
+        qtyMasuk: sumBy(masuk, 'jumlah'),
+        qtyKeluar: sumBy(keluar, 'jumlah')
       }
     })
   },
@@ -258,15 +280,17 @@ export const transactionService = {
 
     const masuk = dayTransactions.filter(t => t.tipe === 'MASUK')
     const keluar = dayTransactions.filter(t => t.tipe === 'KELUAR')
+    const totalMasukHarian = sumBy(masuk, 'total')
+    const totalKeluarHarian = sumBy(keluar, 'total')
 
     return {
       tanggal: target.toISOString(),
       totalTransaksi: dayTransactions.length,
-      totalMasuk: masuk.reduce((sum, t) => sum + t.total, 0),
-      totalKeluar: keluar.reduce((sum, t) => sum + t.total, 0),
-      qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-      qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0),
-      selisih: masuk.reduce((sum, t) => sum + t.total, 0) - keluar.reduce((sum, t) => sum + t.total, 0),
+      totalMasuk: totalMasukHarian,
+      totalKeluar: totalKeluarHarian,
+      qtyMasuk: sumBy(masuk, 'jumlah'),
+      qtyKeluar: sumBy(keluar, 'jumlah'),
+      selisih: totalMasukHarian - totalKeluarHarian,
       transaksi: dayTransactions
     }
   },
@@ -297,27 +321,29 @@ export const transactionService = {
       return {
         hari: label,
         tanggal: date.toISOString(),
-        masuk: masuk.reduce((sum, t) => sum + t.total, 0),
-        keluar: keluar.reduce((sum, t) => sum + t.total, 0),
-        qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-        qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0)
+        masuk: sumBy(masuk, 'total'),
+        keluar: sumBy(keluar, 'total'),
+        qtyMasuk: sumBy(masuk, 'jumlah'),
+        qtyKeluar: sumBy(keluar, 'jumlah')
       }
     })
 
     const weekTransactions = this.filterByPeriod(transactions, 'mingguan', target)
     const masuk = weekTransactions.filter(t => t.tipe === 'MASUK')
     const keluar = weekTransactions.filter(t => t.tipe === 'KELUAR')
+    const totalMasukMingguan = sumBy(masuk, 'total')
+    const totalKeluarMingguan = sumBy(keluar, 'total')
 
     return {
       mingguKe: Math.ceil((day + diffToMonday) / 7),
       mulai: monday.toISOString(),
       akhir: new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6).toISOString(),
       totalTransaksi: weekTransactions.length,
-      totalMasuk: masuk.reduce((sum, t) => sum + t.total, 0),
-      totalKeluar: keluar.reduce((sum, t) => sum + t.total, 0),
-      qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-      qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0),
-      selisih: masuk.reduce((sum, t) => sum + t.total, 0) - keluar.reduce((sum, t) => sum + t.total, 0),
+      totalMasuk: totalMasukMingguan,
+      totalKeluar: totalKeluarMingguan,
+      qtyMasuk: sumBy(masuk, 'jumlah'),
+      qtyKeluar: sumBy(keluar, 'jumlah'),
+      selisih: totalMasukMingguan - totalKeluarMingguan,
       data: weeklyData
     }
   },
@@ -351,21 +377,24 @@ export const transactionService = {
       weeks.push({
         minggu: weeks.length + 1,
         rentang: `${weekStart.getDate()} - ${weekEnd.getDate()}`,
-        masuk: weekMasuk.reduce((sum, t) => sum + t.total, 0),
-        keluar: weekKeluar.reduce((sum, t) => sum + t.total, 0),
-        qtyMasuk: weekMasuk.reduce((sum, t) => sum + t.jumlah, 0),
-        qtyKeluar: weekKeluar.reduce((sum, t) => sum + t.jumlah, 0)
+        masuk: sumBy(weekMasuk, 'total'),
+        keluar: sumBy(weekKeluar, 'total'),
+        qtyMasuk: sumBy(weekMasuk, 'jumlah'),
+        qtyKeluar: sumBy(weekKeluar, 'jumlah')
       })
     }
+
+    const totalMasukBulanan = sumBy(masuk, 'total')
+    const totalKeluarBulanan = sumBy(keluar, 'total')
 
     return {
       bulan: target.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
       totalTransaksi: monthTransactions.length,
-      totalMasuk: masuk.reduce((sum, t) => sum + t.total, 0),
-      totalKeluar: keluar.reduce((sum, t) => sum + t.total, 0),
-      qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-      qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0),
-      selisih: masuk.reduce((sum, t) => sum + t.total, 0) - keluar.reduce((sum, t) => sum + t.total, 0),
+      totalMasuk: totalMasukBulanan,
+      totalKeluar: totalKeluarBulanan,
+      qtyMasuk: sumBy(masuk, 'jumlah'),
+      qtyKeluar: sumBy(keluar, 'jumlah'),
+      selisih: totalMasukBulanan - totalKeluarBulanan,
       data: weeks
     }
   },
@@ -384,25 +413,27 @@ export const transactionService = {
       const keluar = monthTransactions.filter(t => t.tipe === 'KELUAR')
       return {
         bulan,
-        masuk: masuk.reduce((sum, t) => sum + t.total, 0),
-        keluar: keluar.reduce((sum, t) => sum + t.total, 0),
-        qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-        qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0)
+        masuk: sumBy(masuk, 'total'),
+        keluar: sumBy(keluar, 'total'),
+        qtyMasuk: sumBy(masuk, 'jumlah'),
+        qtyKeluar: sumBy(keluar, 'jumlah')
       }
     })
 
     const yearTransactions = this.filterByPeriod(transactions, 'tahunan', new Date(year, 0, 1))
     const masuk = yearTransactions.filter(t => t.tipe === 'MASUK')
     const keluar = yearTransactions.filter(t => t.tipe === 'KELUAR')
+    const totalMasukTahunan = sumBy(masuk, 'total')
+    const totalKeluarTahunan = sumBy(keluar, 'total')
 
     return {
       tahun: year,
       totalTransaksi: yearTransactions.length,
-      totalMasuk: masuk.reduce((sum, t) => sum + t.total, 0),
-      totalKeluar: keluar.reduce((sum, t) => sum + t.total, 0),
-      qtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-      qtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0),
-      selisih: masuk.reduce((sum, t) => sum + t.total, 0) - keluar.reduce((sum, t) => sum + t.total, 0),
+      totalMasuk: totalMasukTahunan,
+      totalKeluar: totalKeluarTahunan,
+      qtyMasuk: sumBy(masuk, 'jumlah'),
+      qtyKeluar: sumBy(keluar, 'jumlah'),
+      selisih: totalMasukTahunan - totalKeluarTahunan,
       data: yearlyData
     }
   },
@@ -424,8 +455,8 @@ export const transactionService = {
           totalNilai: 0
         }
       }
-      acc[t.sparepartId].totalQty += t.jumlah
-      acc[t.sparepartId].totalNilai += t.total
+      acc[t.sparepartId].totalQty += Number(t.jumlah || 0)
+      acc[t.sparepartId].totalNilai += Number(t.total || 0)
       return acc
     }, {})
 
@@ -449,13 +480,13 @@ export const transactionService = {
     const filtered = this.filterByPeriod(transactions, period, date)
     const masuk = filtered.filter(t => t.tipe === 'MASUK')
     const keluar = filtered.filter(t => t.tipe === 'KELUAR')
-    const totalMasuk = masuk.reduce((sum, t) => sum + t.total, 0)
-    const totalKeluar = keluar.reduce((sum, t) => sum + t.total, 0)
+    const totalMasuk = sumBy(masuk, 'total')
+    const totalKeluar = sumBy(keluar, 'total')
 
     return {
       totalTransaksi: filtered.length,
-      totalQtyMasuk: masuk.reduce((sum, t) => sum + t.jumlah, 0),
-      totalQtyKeluar: keluar.reduce((sum, t) => sum + t.jumlah, 0),
+      totalQtyMasuk: sumBy(masuk, 'jumlah'),
+      totalQtyKeluar: sumBy(keluar, 'jumlah'),
       totalMasuk,
       totalKeluar,
       selisih: totalMasuk - totalKeluar,
@@ -472,10 +503,12 @@ export const transactionService = {
     const sparepart = await db.getById(db.keys.SPAREPARTS, transaction.sparepartId)
     if (!sparepart) throw new Error('Sparepart tidak ditemukan')
 
-    // Kembalikan stok
+    // Kembalikan stok (konversi eksplisit ke Number agar akurat)
+    const stokSaatIni = Number(sparepart.stok || 0)
+    const jumlahTransaksi = Number(transaction.jumlah || 0)
     const newStok = transaction.tipe === 'MASUK'
-      ? sparepart.stok - transaction.jumlah
-      : sparepart.stok + transaction.jumlah
+      ? stokSaatIni - jumlahTransaksi
+      : stokSaatIni + jumlahTransaksi
 
     if (newStok < 0) {
       throw new Error('Tidak dapat menghapus transaksi karena stok akan menjadi negatif')
@@ -524,8 +557,8 @@ export const transactionService = {
     const filtered = this.filterByPeriod(transactions, period, date)
     const masuk = filtered.filter(t => t.tipe === 'MASUK')
     const keluar = filtered.filter(t => t.tipe === 'KELUAR')
-    const totalMasuk = masuk.reduce((sum, t) => sum + t.total, 0)
-    const totalKeluar = keluar.reduce((sum, t) => sum + t.total, 0)
+    const totalMasuk = sumBy(masuk, 'total')
+    const totalKeluar = sumBy(keluar, 'total')
 
     // Ambil data pendukung
     const [topSpareparts, movements] = await Promise.all([
@@ -548,9 +581,9 @@ export const transactionService = {
       ['Periode', period.toUpperCase()],
       ['Total Transaksi', filtered.length],
       ['Total Barang Masuk', totalMasuk],
-      ['Total Qty Masuk', masuk.reduce((sum, t) => sum + t.jumlah, 0)],
+      ['Total Qty Masuk', sumBy(masuk, 'jumlah')],
       ['Total Barang Keluar', totalKeluar],
-      ['Total Qty Keluar', keluar.reduce((sum, t) => sum + t.jumlah, 0)],
+      ['Total Qty Keluar', sumBy(keluar, 'jumlah')],
       ['Selisih', totalMasuk - totalKeluar]
     ]
 

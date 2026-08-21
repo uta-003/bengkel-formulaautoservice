@@ -1,6 +1,6 @@
-import { Car, Settings, Gauge } from 'lucide-react'
+import { Car } from 'lucide-react'
 
-// Komponen Loading Screen modern dengan tema Formula Auto Service
+// Komponen Loading Screen modern dengan tema FAS
 export function LoadingScreen({ message = 'Memuat data...', compact = false }) {
   return (
     <div className="relative w-full py-16 sm:py-24 px-4 flex items-center justify-center overflow-hidden">
@@ -24,14 +24,14 @@ export function LoadingScreen({ message = 'Memuat data...', compact = false }) {
             {/* Inner glow ring */}
             <div className="absolute inset-2 rounded-full bg-gradient-to-br from-brand-500/10 to-brand-700/10 animate-pulse-slow" />
 
-            {/* Center icon */}
+            {/* Center logo */}
             <div className="absolute inset-5 sm:inset-6 flex items-center justify-center">
-              <div className="relative">
-                <Car className="w-10 h-10 sm:w-14 sm:h-14 text-brand-600 animate-float" strokeWidth={1.5} />
-                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2">
-                  <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-brand-400 animate-spin-slow" strokeWidth={2} />
-                </div>
-              </div>
+              <img
+                src="/favicon.svg"
+                alt="Logo FAS"
+                className="w-full h-full object-contain rounded-xl shadow-md animate-float"
+                draggable="false"
+              />
             </div>
 
             {/* Orbit dots */}
@@ -72,8 +72,8 @@ export function FullScreenLoader({ message = 'Menyiapkan aplikasi...' }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden">
       {/* Animated gradient background */}
       <div className="absolute inset-0 bg-gradient-animate bg-[length:400%_400%]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(167,0,0,0.15),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,82,82,0.15),transparent_50%)]" />
+        <div className="loader-glow-tl absolute inset-0" />
+        <div className="loader-glow-br absolute inset-0" />
       </div>
 
       {/* Floating particles */}
@@ -97,18 +97,19 @@ export function FullScreenLoader({ message = 'Menyiapkan aplikasi...' }) {
             </div>
             <div className="absolute inset-1.5 rounded-full border-2 border-transparent border-t-brand-400/60 border-b-brand-600/60 animate-spin-slow-reverse" />
 
-            {/* Logo Formula Auto */}
-            <div className="absolute inset-4 flex flex-col items-center justify-center bg-gradient-to-br from-brand-600 to-brand-800 rounded-2xl shadow-lg shadow-brand-700/30">
-              <span className="text-[10px] sm:text-xs font-black tracking-widest text-white">FORMULA</span>
-              <span className="text-[10px] sm:text-xs font-black tracking-widest text-brand-200">AUTO</span>
-              <Gauge className="w-4 h-4 sm:w-6 sm:h-6 text-white absolute -bottom-2 right-1 sm:-bottom-2.5 sm:right-1.5 animate-pulse-slow" strokeWidth={2.5} />
-            </div>
+            {/* Logo FAS */}
+            <img
+              src="/favicon.svg"
+              alt="Logo FAS"
+              className="absolute inset-3 w-[calc(100%-1.5rem)] h-[calc(100%-1.5rem)] object-contain rounded-xl shadow-lg ring-1 ring-black/5"
+              draggable="false"
+            />
           </div>
 
           {/* Text */}
           <h1 className="mt-6 sm:mt-8 text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-700 via-brand-500 to-brand-700 animate-shimmer bg-[length:200%_auto]">
-              Formula Auto Service
+              FAS
             </span>
           </h1>
           <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300">{message}</p>

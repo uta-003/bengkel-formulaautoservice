@@ -3,9 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Formula Auto Service - Sistem Manajemen Sparepart & Service" />
-    <title>Formula Auto Service - Sistem Manajemen Sparepart & Service</title>
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="FAS - Sistem Manajemen Sparepart & Service" />
+    <meta name="theme-color" content="#a70000" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FAS" />
+    <title>FAS - Sistem Manajemen Sparepart & Service</title>
+    <script>
+      // Terapkan tema tersimpan sebelum aplikasi dirender agar tidak terjadi flash warna
+      (function () {
+        try {
+          var theme = localStorage.getItem('app_theme') || 'merah';
+          var valid = ['merah', 'biru', 'hijau', 'ungu', 'oranye', 'tosca', 'pink', 'slate'];
+          if (valid.indexOf(theme) === -1) theme = 'merah';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'merah');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

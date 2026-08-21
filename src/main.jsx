@@ -3,10 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { db } from './services/database'
+import { initTheme } from './services/themeService'
 
 // Inisialisasi realtime + sync ketika aplikasi pertama kali di-load
 function AppInitializer() {
   useEffect(() => {
+    // Terapkan tema tersimpan (sinkronkan juga warna meta theme-color)
+    initTheme()
+
     // Inisialisasi realtime subscription
     db.initRealtime()
 
@@ -26,6 +30,13 @@ function AppInitializer() {
     // Cek status koneksi saat pertama load
     if (navigator.onLine) {
       db.flushPendingOps()
+    }
+
+    // Registrasi Service Worker untuk PWA (installable di HP/PC)
+    if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('[PWA] Gagal registrasi service worker:', err)
+      })
     }
 
     return () => {

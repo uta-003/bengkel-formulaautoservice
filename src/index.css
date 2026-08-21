@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* ===== Formula Auto Service Theme ===== */
+/* ===== FAS Theme System ===== */
+/* Tema default: Merah FAS. Tema lain di-override via atribut data-theme pada <html> */
 @theme {
   /* Brand color palette */
   --color-brand-50: #fff5f5;
@@ -20,6 +21,171 @@
   --color-sidebar-border: #2d0a0a;
 }
 
+/* ===== Tema: Biru Samudra ===== */
+html[data-theme="biru"] {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --color-sidebar: #04101f;
+  --color-sidebar-darker: #020912;
+  --color-sidebar-border: #0c2340;
+}
+
+/* ===== Tema: Hijau Hutan ===== */
+html[data-theme="hijau"] {
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+  --color-sidebar: #03140d;
+  --color-sidebar-darker: #010a07;
+  --color-sidebar-border: #0a2e1f;
+}
+
+/* ===== Tema: Ungu Royal ===== */
+html[data-theme="ungu"] {
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-sidebar: #0f081f;
+  --color-sidebar-darker: #080512;
+  --color-sidebar-border: #201040;
+}
+
+/* ===== Tema: Oranye Senja ===== */
+html[data-theme="oranye"] {
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+  --color-brand-800: #9a3412;
+  --color-brand-900: #7c2d12;
+  --color-sidebar: #190b02;
+  --color-sidebar-darker: #100701;
+  --color-sidebar-border: #301704;
+}
+
+/* ===== Tema: Tosca Laut ===== */
+html[data-theme="tosca"] {
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+  --color-sidebar: #02120f;
+  --color-sidebar-darker: #010a09;
+  --color-sidebar-border: #05302a;
+}
+
+/* ===== Tema: Pink Mawar ===== */
+html[data-theme="pink"] {
+  --color-brand-50: #fdf2f8;
+  --color-brand-100: #fce7f3;
+  --color-brand-200: #fbcfe8;
+  --color-brand-300: #f9a8d4;
+  --color-brand-400: #f472b6;
+  --color-brand-500: #ec4899;
+  --color-brand-600: #db2777;
+  --color-brand-700: #be185d;
+  --color-brand-800: #9d174d;
+  --color-brand-900: #831843;
+  --color-sidebar: #1a0510;
+  --color-sidebar-darker: #12030a;
+  --color-sidebar-border: #33091f;
+}
+
+/* ===== Tema: Abu Monokrom ===== */
+html[data-theme="slate"] {
+  --color-brand-50: #f8fafc;
+  --color-brand-100: #f1f5f9;
+  --color-brand-200: #e2e8f0;
+  --color-brand-300: #cbd5e1;
+  --color-brand-400: #94a3b8;
+  --color-brand-500: #64748b;
+  --color-brand-600: #475569;
+  --color-brand-700: #334155;
+  --color-brand-800: #1e293b;
+  --color-brand-900: #0f172a;
+  --color-sidebar: #0b1120;
+  --color-sidebar-darker: #060b16;
+  --color-sidebar-border: #1b2740;
+}
+
+/* ===== Kelas bantu berbasis tema (mengikuti warna brand aktif) ===== */
+
+/* Background sidebar gelap mengikuti tema aktif */
+.sidebar-bg {
+  background: linear-gradient(
+    to bottom,
+    var(--color-sidebar) 0%,
+    color-mix(in srgb, var(--color-sidebar) 82%, var(--color-brand-700)) 50%,
+    var(--color-sidebar-darker) 100%
+  );
+}
+
+/* Footer sidebar mengikuti tema aktif */
+.sidebar-footer-bg {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-sidebar-darker) 90%, transparent),
+    color-mix(in srgb, var(--color-sidebar) 90%, transparent)
+  );
+}
+
+/* Background halaman login mengikuti tema aktif */
+.login-bg {
+  background: linear-gradient(
+    to bottom right,
+    var(--color-brand-700),
+    var(--color-brand-600),
+    var(--color-brand-900)
+  );
+}
+
+/* Glow radial untuk loading screen mengikuti tema aktif */
+.loader-glow-tl {
+  background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--color-brand-700) 15%, transparent), transparent 50%);
+}
+
+.loader-glow-br {
+  background: radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--color-brand-400) 15%, transparent), transparent 50%);
+}
+
+/* Transisi halus saat berganti tema */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
 /* ===== Modern Loading Animations ===== */
 
 /* Animated gradient background */
@@ -30,12 +196,12 @@
 }
 
 .bg-gradient-animate {
-  background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 25%, #fff0f0 50%, #ffe0e0 75%, #fff5f5 100%);
+  background: linear-gradient(135deg, var(--color-brand-50) 0%, var(--color-brand-100) 25%, color-mix(in srgb, var(--color-brand-50) 70%, white) 50%, var(--color-brand-100) 75%, var(--color-brand-50) 100%);
   animation: gradient-animate 8s ease infinite;
 }
 
 .dark .bg-gradient-animate {
-  background: linear-gradient(135deg, #1a0505 0%, #2d0a0a 25%, #1f0707 50%, #260808 75%, #1a0505 100%);
+  background: linear-gradient(135deg, var(--color-sidebar) 0%, var(--color-sidebar-border) 25%, var(--color-sidebar-darker) 50%, var(--color-sidebar-border) 75%, var(--color-sidebar) 100%);
 }
 
 /* Blob animation for background blobs */
@@ -347,6 +513,53 @@
     right: 0;
     width: 100%;
     max-width: 100%;
+  }
+}
+
+/* ===== Print styles untuk Invoice & Work Order ===== */
+.print-area {
+  display: none;
+}
+
+@media print {
+  /* Sembunyikan seluruh aplikasi saat mencetak */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Tampilkan hanya area cetak */
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  .print-no-print {
+    display: none !important;
+  }
+
+  .print-page {
+    width: 210mm;
+    min-height: auto;
+    padding: 12mm;
+    box-sizing: border-box;
+    font-size: 12px;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm;
   }
 }
 

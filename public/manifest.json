@@ -1,0 +1,27 @@
+{
+  "name": "FAS - Manajemen Sparepart & Servis",
+  "short_name": "FAS",
+  "description": "Sistem manajemen inventori sparepart & servis bengkel dengan sinkronisasi realtime multi-perangkat",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1a0505",
+  "theme_color": "#a70000",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"]
+}

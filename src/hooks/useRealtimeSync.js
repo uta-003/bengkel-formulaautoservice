@@ -77,16 +77,38 @@ export function useRealtimeData(table, fetchData, deps = []) {
 
 /**
  * Hook untuk men-return status koneksi Supabase.
+ * Melakukan pengecekan koneksi nyata saat pertama kali dipasang,
+ * lalu mengikuti event status dari database layer (realtime channel & operasi CRUD).
  */
 export function useSyncStatus() {
-  const [status, setStatus] = useState('online')
+  const [status, setStatus] = useState(() => (db.isSupabaseAvailable() ? 'online' : 'offline'))
 
   useEffect(() => {
+    let isMounted = true
+
+    // Cek koneksi awal ke Supabase agar indikator wifi akurat sejak startup
+    db.checkConnection().then((ok) => {
+      if (isMounted) setStatus(ok ? 'online' : 'offline')
+    })
+
     const handleStatus = (e) => {
-      setStatus(e.detail?.status || 'online')
+      if (isMounted) setStatus(e.detail?.status || 'online')
     }
     window.addEventListener(db.syncEvent, handleStatus)
-    return () => window.removeEventListener(db.syncEvent, handleStatus)
+
+    // Cek ulang koneksi saat jaringan perangkat kembali online
+    const handleOnline = () => {
+      db.checkConnection().then((ok) => {
+        if (isMounted) setStatus(ok ? 'online' : 'offline')
+      })
+    }
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener(db.syncEvent, handleStatus)
+      window.removeEventListener('online', handleOnline)
+    }
   }, [])
 
   return status

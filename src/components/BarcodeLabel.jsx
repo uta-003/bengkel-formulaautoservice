@@ -60,11 +60,11 @@ function BarcodeLabel({ sparepart, compact = false }) {
 
       {!compact && (
         <p className="text-center text-xs text-gray-500 mt-1">
-          {sparepart.lokasi ? `Lokasi: ${sparepart.lokasi}` : 'Formula Auto Service'}
+          {sparepart.lokasi ? `Lokasi: ${sparepart.lokasi}` : 'FAS'}
         </p>
       )}
     </div>
   )
 }
 
-export default BarcodeLabel
+export default BarcodeLabel

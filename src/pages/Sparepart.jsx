@@ -36,6 +36,7 @@ const emptyForm = {
   hargaJual: '',
   stok: '',
   stokMinimum: '',
+  garansiBulan: '',
   lokasi: '',
   barcode: '',
   satuan: 'pcs'
@@ -189,7 +190,8 @@ function Sparepart() {
       hargaBeli: Number(form.hargaBeli),
       hargaJual: Number(form.hargaJual),
       stok: Number(form.stok),
-      stokMinimum: Number(form.stokMinimum)
+      stokMinimum: Number(form.stokMinimum),
+      garansiBulan: Number(form.garansiBulan || 0)
     }
 
     try {
@@ -225,6 +227,7 @@ function Sparepart() {
       hargaJual: sp.hargaJual,
       stok: sp.stok,
       stokMinimum: sp.stokMinimum,
+      garansiBulan: sp.garansiBulan || 0,
       lokasi: sp.lokasi,
       barcode: sp.barcode,
       satuan: sp.satuan || 'pcs'
@@ -742,6 +745,20 @@ function Sparepart() {
                     min="0"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Garansi (Bulan)</label>
+                  <input
+                    type="number"
+                    className={inputClass}
+                    value={form.garansiBulan}
+                    onChange={(e) => setForm({ ...form, garansiBulan: e.target.value })}
+                    min="0"
+                    placeholder="0 = tanpa garansi"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Garansi sparepart otomatis dibuat saat WO selesai
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Barcode</label>
