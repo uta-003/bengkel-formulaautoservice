@@ -67,6 +67,28 @@ function Layout() {
     }
   }, [])
 
+  // Deteksi keyboard virtual terbuka (mobile) untuk menyembunyikan bottom nav secara halus
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+
+    const handleViewportChange = () => {
+      // Keyboard terbuka jika visual viewport menyusut >150px dibanding layout viewport
+      const keyboardOpen = window.innerHeight - vv.height > 150
+      document.documentElement.classList.toggle('keyboard-open', keyboardOpen)
+    }
+
+    vv.addEventListener('resize', handleViewportChange)
+    vv.addEventListener('scroll', handleViewportChange)
+    handleViewportChange()
+
+    return () => {
+      vv.removeEventListener('resize', handleViewportChange)
+      vv.removeEventListener('scroll', handleViewportChange)
+      document.documentElement.classList.remove('keyboard-open')
+    }
+  }, [])
+
   useEffect(() => {
     let isMounted = true
 
@@ -367,8 +389,8 @@ function Layout() {
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="p-3 sm:p-4 lg:p-8 pb-20 lg:pb-8">
+        {/* Main content (padding bawah mengikuti tinggi bottom nav + safe area) */}
+        <main className="p-3 sm:p-4 lg:p-8 main-pb-nav">
           <Outlet />
         </main>
 
@@ -378,8 +400,8 @@ function Layout() {
         </footer>
       </div>
 
-      {/* Bottom Navigation Mobile */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-safe">
+      {/* Bottom Navigation Mobile - posisi terkunci, tidak bergeser saat scroll/keyboard */}
+      <nav className="bottom-nav-lock lg:hidden bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
         <div className="grid grid-cols-5">
           {mobileMenuItems.map((item) => (
             <NavLink

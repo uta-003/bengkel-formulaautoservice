@@ -14,6 +14,21 @@ import { soundService } from '../services/soundService'
 
 // Ikon lonceng notifikasi dengan dropdown panel
 // Menampilkan: low stock, garansi expiring, invoice belum dibayar
+
+/** Format waktu ringkas & presisi: HH.mm hari ini, "Kemarin", atau tanggal singkat */
+function formatNotifTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === now.toDateString()) return time
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Kemarin'
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+}
+
 function NotificationBell() {
   const [notifications, setNotifications] = useState([])
   const [summary, setSummary] = useState({ total: 0, critical: 0 })
@@ -79,9 +94,9 @@ function NotificationBell() {
 
   const getSeverityStyle = (severity) => {
     switch (severity) {
-      case 'critical': return 'bg-red-50 text-red-600 border-red-200'
-      case 'warning': return 'bg-yellow-50 text-yellow-600 border-yellow-200'
-      default: return 'bg-blue-50 text-blue-600 border-blue-200'
+      case 'critical': return 'bg-red-50 text-red-500 border-red-100'
+      case 'warning': return 'bg-amber-50 text-amber-500 border-amber-100'
+      default: return 'bg-blue-50 text-blue-500 border-blue-100'
     }
   }
 
@@ -104,23 +119,26 @@ function NotificationBell() {
         )}
       </button>
 
-      {/* Panel dropdown */}
+      {/* Panel dropdown - mobile: fixed di bawah header agar selalu presisi muat layar;
+          desktop: absolute menempel kanan tombol */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+        <div className="animate-dropdown-in fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-0 top-[72px] sm:top-full sm:mt-2 w-auto sm:w-96 bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-200 z-50 overflow-hidden">
           {/* Header panel */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-brand-600" />
-              Notifikasi
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="shrink-0 w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                <Bell className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold text-gray-800 leading-none">Notifikasi</h3>
               {summary.total > 0 && (
-                <span className="px-1.5 py-0.5 bg-brand-100 text-brand-700 text-[10px] font-bold rounded-full">
+                <span className="shrink-0 px-1.5 py-1 bg-brand-600 text-white text-[10px] font-bold rounded-full leading-none">
                   {summary.total}
                 </span>
               )}
-            </h3>
+            </div>
             <button
               onClick={() => setOpen(false)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="p-1.5 -mr-1 shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-200/70 rounded-lg transition-colors"
               aria-label="Tutup"
             >
               <X className="w-4 h-4" />
@@ -128,36 +146,61 @@ function NotificationBell() {
           </div>
 
           {/* Daftar notifikasi */}
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[min(24rem,55vh)] overflow-y-auto thin-scrollbar p-2">
             {isLoading ? (
-              <p className="px-4 py-8 text-center text-sm text-gray-400">Memuat notifikasi...</p>
+              /* Skeleton loading agar tinggi baris konsisten */
+              <ul className="space-y-1" aria-busy="true">
+                {[...Array(3)].map((_, i) => (
+                  <li key={i} className="flex items-start gap-3 px-3 py-2.5">
+                    <span className="shrink-0 w-9 h-9 rounded-xl bg-gray-100 animate-pulse" />
+                    <span className="flex-1 min-w-0 space-y-1.5 pt-0.5">
+                      <span className="block h-3 w-1/3 bg-gray-100 rounded animate-pulse" />
+                      <span className="block h-3 w-3/4 bg-gray-100 rounded animate-pulse" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
             ) : notifications.length === 0 ? (
               <div className="px-4 py-10 text-center">
-                <CheckCheck className="w-10 h-10 text-green-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">Semua aman! Tidak ada notifikasi.</p>
+                <span className="inline-flex w-12 h-12 rounded-full bg-green-50 items-center justify-center mb-3">
+                  <CheckCheck className="w-6 h-6 text-green-500" />
+                </span>
+                <p className="text-sm font-medium text-gray-600">Semua aman!</p>
+                <p className="text-xs text-gray-400 mt-0.5">Tidak ada notifikasi.</p>
               </div>
             ) : (
-              notifications.slice(0, 20).map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => handleItemClick(n)}
-                  className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-b-0"
-                >
-                  <span className={`shrink-0 w-8 h-8 rounded-lg border flex items-center justify-center ${getSeverityStyle(n.severity)}`}>
-                    {getIcon(n.type)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-semibold text-gray-800">{n.title}</span>
-                    <span className="block text-xs text-gray-500 mt-0.5 break-words">{n.message}</span>
-                  </span>
-                </button>
-              ))
+              <ul className="space-y-1">
+                {notifications.slice(0, 20).map((n) => (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => handleItemClick(n)}
+                      className="group w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                    >
+                      <span className={`shrink-0 w-9 h-9 rounded-xl border flex items-center justify-center ${getSeverityStyle(n.severity)}`}>
+                        {getIcon(n.type)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {/* Baris judul + waktu sejajar presisi */}
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="text-xs font-semibold text-gray-800 truncate">{n.title}</span>
+                          <span className="shrink-0 text-[10px] text-gray-400 tabular-nums whitespace-nowrap">
+                            {formatNotifTime(n.timestamp)}
+                          </span>
+                        </span>
+                        <span className="block text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-2 break-words">
+                          {n.message}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
           {/* Footer */}
           {notifications.length > 20 && (
-            <div className="px-4 py-2 bg-gray-50/50 border-t border-gray-100 text-center">
+            <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 text-center">
               <p className="text-[11px] text-gray-400">Menampilkan 20 dari {notifications.length} notifikasi</p>
             </div>
           )}

@@ -4,6 +4,8 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Cegah rubber-band/bounce yang membuat elemen fixed ikut bergeser */
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -11,6 +13,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
 }
 
 /* Smooth custom scrollbar (desktop) */
@@ -501,6 +504,71 @@ html[data-theme="slate"] {
 /* Mobile bottom navigation safe area */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== Bottom Navigation Terkunci (tidak bergeser saat scroll/keyboard) ===== */
+.bottom-nav-lock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  /* Promosikan ke layer GPU terpisah agar tidak ikut repaint/jitter saat halaman discroll */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Ikuti safe area perangkat ber-notch (iPhone) agar menempel presisi di tepi bawah */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: transform 0.25s ease;
+}
+
+/* Sembunyikan bottom nav dengan halus saat keyboard virtual terbuka (mobile) */
+@media (max-width: 1023px) {
+  html.keyboard-open .bottom-nav-lock {
+    transform: translateY(110%);
+  }
+}
+
+/* Padding bawah konten utama = tinggi bottom nav + safe area (mobile saja) */
+.main-pb-nav {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .main-pb-nav {
+    padding-bottom: 2rem; /* setara lg:p-8 */
+  }
+}
+
+/* ===== Animasi dropdown/popover (notifikasi & tema warna) ===== */
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-dropdown-in {
+  animation: dropdown-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+
+/* Scrollbar tipis & rapi khusus panel dropdown */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 9999px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
 }
 
 /* Card view for mobile tables - hidden on desktop */
