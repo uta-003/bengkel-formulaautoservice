@@ -25,9 +25,20 @@ import { supplierService } from '../services/supplierService'
 import { workOrderService } from '../services/workOrderService'
 import { invoiceService } from '../services/invoiceService'
 import { db } from '../services/database'
+import { authService } from '../services/authService'
 import { formatRupiah } from '../utils/format'
 
+/** Sapaan sesuai waktu saat ini: pagi (04-10), siang (11-13), sore (14-17), malam (18-03) */
+function getGreeting(date = new Date()) {
+  const hour = date.getHours()
+  if (hour >= 4 && hour < 11) return 'Selamat pagi'
+  if (hour >= 11 && hour < 15) return 'Selamat siang'
+  if (hour >= 15 && hour < 18) return 'Selamat sore'
+  return 'Selamat malam'
+}
+
 function Dashboard() {
+  const currentUser = authService.getCurrentUser()
   const [stats, setStats] = useState(null)
   const [transStats, setTransStats] = useState(null)
   const [lowStock, setLowStock] = useState([])
@@ -251,7 +262,7 @@ function Dashboard() {
               <Gauge className="w-5 h-5 sm:w-6 sm:h-6 text-brand-100" />
               <span className="text-[10px] sm:text-xs font-semibold text-brand-100 uppercase tracking-widest">FAS</span>
             </div>
-            <h1 className="text-xl sm:text-3xl font-bold">Dashboard</h1>
+            <h1 className="text-xl sm:text-3xl font-bold">{getGreeting()}, {currentUser?.nama || 'Pengguna'}!</h1>
             <p className="text-brand-100 mt-1 text-sm sm:text-base">Ringkasan kondisi inventori & servis</p>
           </div>
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 w-fit">

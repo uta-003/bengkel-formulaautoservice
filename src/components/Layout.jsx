@@ -289,6 +289,19 @@ function Layout() {
         </nav>
 
         <div className={`sidebar-footer-bg p-4 border-t border-sidebar-border space-y-2 backdrop-blur-sm ${sidebarCollapsed ? 'lg:px-2 lg:flex lg:flex-col lg:items-center lg:space-y-2' : ''}`}>
+          {/* Kartu akun pengguna - dipindah dari top navigation bar */}
+          <div
+            className={`flex items-center gap-3 bg-white/5 rounded-lg p-2.5 ${sidebarCollapsed ? 'lg:bg-transparent lg:p-0' : ''}`}
+            title={currentUser?.nama || 'Pengguna'}
+          >
+            <div className="w-9 h-9 shrink-0 bg-gradient-to-br from-brand-400 to-brand-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-brand-900/30 ring-2 ring-white/20 select-none">
+              {getInitials(currentUser?.nama) || <User className="w-4 h-4" />}
+            </div>
+            <div className={`flex-1 min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+              <p className="text-sm font-semibold text-white truncate">{currentUser?.nama || 'Admin Gudang'}</p>
+              <p className="text-[11px] text-brand-300/90 uppercase tracking-wide truncate">{currentUser?.role || 'ADMIN'}</p>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? 'Logout' : undefined}
@@ -383,19 +396,6 @@ function Layout() {
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
-            <div className="hidden sm:block text-right">
-              <p className="text-sm font-medium text-gray-800 truncate-mobile max-w-[120px]">{currentUser?.nama || 'Admin Gudang'}</p>
-              <p className="text-xs text-gray-500">
-                {currentUser?.role || 'ADMIN'} • {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-            <div
-              className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-full flex items-center justify-center text-white font-semibold shadow-md shadow-brand-500/30 border-2 border-brand-200 select-none"
-              title={currentUser?.nama || 'Pengguna'}
-              aria-hidden="true"
-            >
-              {getInitials(currentUser?.nama) || <User className="w-4 h-4" />}
-            </div>
           </div>
         </header>
 
