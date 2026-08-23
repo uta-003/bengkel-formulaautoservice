@@ -506,19 +506,102 @@ html[data-theme="slate"] {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ===== Bottom Navigation Terkunci (tidak bergeser saat scroll/keyboard) ===== */
+/* ===== App Shell Terkunci (mobile) =====
+   Dokumen (<html>/<body>) TIDAK ikut scroll di tampilan mobile; scrolling
+   dipindahkan ke kontainer konten internal (.app-scroll-area). Karena dokumen
+   tidak pernah scroll, address bar browser tidak mengecil/membesar sehingga
+   tinggi viewport selalu konstan dan bottom nav benar-benar tidak bergeser. */
+@media (max-width: 1023px) {
+  html.has-app-shell,
+  html.has-app-shell body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Kontainer konten yang dapat digulir (hanya aktif di mobile) */
+@media (max-width: 1023px) {
+  .app-shell {
+    height: 100vh;
+    height: 100dvh; /* ikut perubahan viewport saat keyboard terbuka */
+    min-height: 0;
+    overflow: hidden;
+  }
+  .app-scroll-area {
+    flex: 1 1 auto;
+    min-height: 0; /* wajib agar flex child bisa menyusut & scroll bekerja */
+    overflow-y: auto;
+    overscroll-behavior: contain; /* cegah scroll chaining ke dokumen */
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    display: block; /* desktop: perilaku lama (body scroll + sticky header) */
+  }
+}
+
+/* ===== Bottom Navigation Terkunci (tidak bisa digeser/ditarik) ===== */
 .bottom-nav-lock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
+  max-width: 100vw;
+  margin: 0;
   z-index: 40;
-  /* Promosikan ke layer GPU terpisah agar tidak ikut repaint/jitter saat halaman discroll */
+  /* Promosikan ke layer GPU terpisah agar tidak ikut repaint/jitter saat scroll */
   transform: translateZ(0);
   backface-visibility: hidden;
+  will-change: transform;
   /* Ikuti safe area perangkat ber-notch (iPhone) agar menempel presisi di tepi bawah */
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Blokir gesture drag, select text & double-tap zoom yang bermula dari nav */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
   transition: transform 0.25s ease;
+}
+
+/* Item navigasi: tinggi seragam 56px — target sentuh nyaman & tampilan presisi */
+.bottom-nav-item {
+  height: 3.5rem;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  outline-offset: -2px;
+}
+
+/* Indikator halaman aktif: memanjang halus dari tengah */
+.bn-indicator {
+  transform: translateX(-50%) scaleX(0);
+  opacity: 0;
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+}
+.bn-indicator.bn-active {
+  transform: translateX(-50%) scaleX(1);
+  opacity: 1;
+}
+
+/* Bungkus ikon: umpan balik sentuh (ditekan = mengecil halus) */
+.bn-icon-wrap {
+  transition:
+    transform 0.15s ease,
+    background-color 0.2s ease;
+}
+.bottom-nav-item:active .bn-icon-wrap {
+  transform: scale(0.9);
 }
 
 /* Sembunyikan bottom nav dengan halus saat keyboard virtual terbuka (mobile) */

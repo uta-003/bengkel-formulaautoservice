@@ -89,6 +89,16 @@ function Layout() {
     }
   }, [])
 
+  // Kunci dokumen pada tampilan mobile: matikan scroll pada <html>/<body> agar
+  // bottom nav tidak pernah bergeser. Scroll dipindahkan ke .app-scroll-area.
+  // Kelas dilepas saat komponen unmount agar halaman lain (mis. Login) normal.
+  useEffect(() => {
+    document.documentElement.classList.add('has-app-shell')
+    return () => {
+      document.documentElement.classList.remove('has-app-shell')
+    }
+  }, [])
+
   useEffect(() => {
     let isMounted = true
 
@@ -157,11 +167,11 @@ function Layout() {
 
   // Menu dengan permission requirements
   const menuItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true, permission: null },
-    { to: '/sparepart', icon: Package, label: 'Data Sparepart', permission: Permissions.VIEW_SPAREPART },
-    { to: '/barang-masuk', icon: ArrowDownToLine, label: 'Barang Masuk', permission: Permissions.CREATE_TRANSACTION },
-    { to: '/barang-keluar', icon: ArrowUpFromLine, label: 'Barang Keluar', permission: Permissions.CREATE_TRANSACTION },
-    { to: '/low-stock', icon: AlertTriangle, label: 'Low Stock Alert', permission: Permissions.VIEW_SPAREPART },
+    { to: '/', icon: LayoutDashboard, label: 'Dashboard', shortLabel: 'Beranda', end: true, permission: null },
+    { to: '/sparepart', icon: Package, label: 'Data Sparepart', shortLabel: 'Sparepart', permission: Permissions.VIEW_SPAREPART },
+    { to: '/barang-masuk', icon: ArrowDownToLine, label: 'Barang Masuk', shortLabel: 'Masuk', permission: Permissions.CREATE_TRANSACTION },
+    { to: '/barang-keluar', icon: ArrowUpFromLine, label: 'Barang Keluar', shortLabel: 'Keluar', permission: Permissions.CREATE_TRANSACTION },
+    { to: '/low-stock', icon: AlertTriangle, label: 'Low Stock Alert', shortLabel: 'Stok', permission: Permissions.VIEW_SPAREPART },
     { to: '/supplier', icon: Truck, label: 'Manajemen Supplier', permission: Permissions.VIEW_SPAREPART },
     { to: '/laporan', icon: BarChart3, label: 'Laporan & Analisis', permission: Permissions.VIEW_REPORTS },
     { to: '/barcode', icon: ScanBarcode, label: 'Barcode Scanner', permission: Permissions.VIEW_SPAREPART },
@@ -190,7 +200,7 @@ function Layout() {
   const pageTitle = activeMenuItem?.label || 'Dashboard'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-shell min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside
         className={`sidebar-bg fixed inset-y-0 left-0 z-50 flex flex-col text-white transform transition-all duration-300 lg:translate-x-0 ${
@@ -309,10 +319,10 @@ function Layout() {
         />
       )}
 
-      {/* Main Content */}
-      <div className={`transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
+      {/* Main Content - kontainer scroll internal pada mobile (dokumen terkunci) */}
+      <div className={`app-scroll-area transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-brand-100 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between shadow-sm">
+        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-brand-100 px-4 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 lg:py-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2 lg:gap-3">
             <button
               className="lg:hidden text-gray-600 hover:text-brand-600 transition-colors touch-target"
@@ -400,37 +410,42 @@ function Layout() {
         </footer>
       </div>
 
-      {/* Bottom Navigation Mobile - posisi terkunci, tidak bergeser saat scroll/keyboard */}
-      <nav className="bottom-nav-lock lg:hidden bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+      {/* Bottom Navigation Mobile - posisi terkunci absolut (dokumen tidak scroll di mobile) */}
+      <nav
+        className="bottom-nav-lock lg:hidden bg-white border-t border-gray-200 shadow-[0_-6px_20px_rgba(0,0,0,0.10)]"
+        aria-label="Navigasi utama"
+      >
         <div className="grid grid-cols-5">
           {mobileMenuItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
+              aria-label={item.label}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
-                `relative flex flex-col items-center justify-center py-2.5 px-1 transition-colors ${
-                  isActive ? 'text-brand-600' : 'text-gray-500 hover:text-gray-700'
+                `bottom-nav-item relative flex flex-col items-center justify-center gap-[3px] ${
+                  isActive ? 'text-brand-600' : 'text-gray-500'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className={`relative ${isActive ? 'text-brand-600' : ''}`}>
-                    <item.icon className="w-5 h-5" />
+                  {/* Indikator halaman aktif */}
+                  <span className={`bn-indicator absolute top-0 left-1/2 h-[3px] w-8 rounded-b-full bg-brand-600 ${isActive ? 'bn-active' : ''}`} />
+                  {/* Ikon + badge */}
+                  <span className={`bn-icon-wrap relative flex h-7 w-12 items-center justify-center rounded-full ${isActive ? 'bg-brand-50' : ''}`}>
+                    <item.icon className="h-[22px] w-[22px]" strokeWidth={isActive ? 2.4 : 2} />
                     {item.to === '/low-stock' && lowStockCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-brand-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-md shadow-brand-500/40">
+                      <span className="absolute -right-1.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold leading-none text-white shadow-md shadow-brand-500/40 ring-2 ring-white">
                         {lowStockCount > 99 ? '99+' : lowStockCount}
                       </span>
                     )}
-                  </div>
-                  <span className="text-[10px] font-medium mt-0.5 truncate-mobile max-w-full">
-                    {item.label.split(' ')[0]}
                   </span>
-                  {isActive && (
-                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand-600 rounded-full" />
-                  )}
+                  {/* Label pendek agar rapi & tidak pernah terpotong */}
+                  <span className="text-[10px] font-semibold leading-none tracking-tight">
+                    {item.shortLabel || item.label.split(' ')[0]}
+                  </span>
                 </>
               )}
             </NavLink>
