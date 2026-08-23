@@ -197,9 +197,9 @@ function Vehicles() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Table - Desktop & Tablet */}
+      <div className="desktop-table-view bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -256,10 +256,77 @@ function Vehicles() {
         </div>
       </div>
 
+      {/* Card View - Mobile */}
+      <div className="mobile-card-view space-y-3">
+        {isLoading ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500 text-sm">Memuat data...</div>
+        ) : filteredVehicles.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <Car className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Belum ada data kendaraan</p>
+          </div>
+        ) : (
+          filteredVehicles.map((v) => (
+            <div key={v.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+                    <Car className="w-5 h-5 text-brand-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-800 text-sm truncate-mobile">{v.platNomor}</p>
+                    <p className="text-xs text-gray-500 truncate-mobile">{[v.merk, v.tipe].filter(Boolean).join(' ') || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mt-3 text-sm">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">Tahun</p>
+                  <p className="font-medium text-gray-800">{v.tahun || '-'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">Warna</p>
+                  <p className="font-medium text-gray-800 truncate-mobile">{v.warna || '-'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">KM</p>
+                  <p className="font-medium text-gray-800">{Number(v.kmTerakhir || 0).toLocaleString('id-ID')}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 flex items-center gap-1.5 min-w-0">
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate-mobile">{v.customer?.nama || '-'}</span>
+                </p>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => handleEdit(v)}
+                    className="px-3 py-2 inline-flex items-center gap-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(v)}
+                    className="px-3 py-2 inline-flex items-center gap-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Hapus
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => { setShowModal(false); setEditingVehicle(null) }} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[92dvh] overflow-y-auto modal-mobile">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 {editingVehicle ? 'Edit Kendaraan' : 'Tambah Kendaraan'}
@@ -349,13 +416,13 @@ function Vehicles() {
                 <button
                   type="button"
                   onClick={() => { setShowModal(false); setEditingVehicle(null) }}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors touch-target"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors touch-target"
                 >
                   {editingVehicle ? 'Update' : 'Simpan'}
                 </button>

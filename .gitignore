@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# ===== KEAMANAN: Environment variables & kredensial =====
+# JANGAN commit file berisi kunci API / secret ke repository.
+# Gunakan .env.example sebagai template (tanpa nilai asli).
+.env
+.env.*
+!.env.example
+
+# Database dumps & backup berisi data sensitif
+*.sql.gz
+*.dump
+backup/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

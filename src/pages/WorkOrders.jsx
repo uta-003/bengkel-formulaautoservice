@@ -401,9 +401,9 @@ function WorkOrders() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Table - Desktop & Tablet */}
+      <div className="desktop-table-view bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -473,10 +473,86 @@ function WorkOrders() {
         </div>
       </div>
 
+      {/* Card View - Mobile */}
+      <div className="mobile-card-view space-y-3">
+        {isLoading ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500 text-sm">Memuat data...</div>
+        ) : filteredWO.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Belum ada data work order</p>
+          </div>
+        ) : (
+          filteredWO.map((wo) => (
+            <div key={wo.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+                    <ClipboardList className="w-5 h-5 text-brand-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-brand-600 text-sm truncate-mobile">{wo.nomorWo}</p>
+                    <p className="text-xs text-gray-500">{formatDate(wo.tanggalMasuk)}</p>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium shrink-0 ${WO_STATUS_COLORS[wo.status] || 'bg-gray-100 text-gray-600'}`}>
+                  {WO_STATUS_LABELS[wo.status] || wo.status}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 mt-3 text-sm">
+                <p className="text-gray-600 truncate-mobile"><span className="text-gray-400">Pelanggan:</span> {wo.customer?.nama || '-'}</p>
+                <p className="text-gray-600 truncate-mobile">
+                  <span className="text-gray-400">Kendaraan:</span>{' '}
+                  {wo.vehicle ? `${wo.vehicle.merk || ''} ${wo.vehicle.tipe || ''} (${wo.vehicle.platNomor || ''})` : '-'}
+                </p>
+                <p className="text-gray-600 truncate-mobile"><span className="text-gray-400">Mekanik:</span> {wo.mechanic?.nama || '-'}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">Estimasi</p>
+                  <p className="font-medium text-gray-800">{formatRupiah(wo.estimasiBiaya || 0)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">Total</p>
+                  <p className="font-semibold text-brand-600">{formatRupiah(wo.totalBiaya || 0)}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => handleShowDetail(wo)}
+                  className="px-3 py-2 inline-flex items-center gap-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                >
+                  <Eye className="w-4 h-4" />
+                  Detail
+                </button>
+                <button
+                  onClick={() => handleEdit(wo)}
+                  className="px-3 py-2 inline-flex items-center gap-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(wo)}
+                  className="px-3 py-2 inline-flex items-center gap-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Modal Tambah/Edit */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => { setShowModal(false); setEditingWO(null) }} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[92dvh] overflow-y-auto modal-mobile">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 {editingWO ? 'Edit Work Order' : 'Buat Work Order'}
@@ -604,8 +680,9 @@ function WorkOrders() {
 
       {/* Modal Detail */}
       {showDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => setShowDetail(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92dvh] overflow-y-auto modal-mobile">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-800">Detail Work Order</h2>

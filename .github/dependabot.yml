@@ -1,0 +1,41 @@
+# Dependabot: update otomatis dependensi npm & GitHub Actions
+# Dokumentasi: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+
+updates:
+  # Dependensi aplikasi (produksi)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+      - "security"
+
+  # Dependensi development
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-type: "development"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions (jika ada workflow di masa depan)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "ci"

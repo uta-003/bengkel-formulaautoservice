@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { sparepartService } from '../services/sparepartService'
 import { authService } from '../services/authService'
 import { rbacService, Permissions } from '../services/rbacService'
@@ -32,13 +32,24 @@ import {
   FileText,
   Undo2,
   ClipboardCheck,
-  ShieldCheck
+  ShieldCheck,
+  User
 } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { ThemeQuickToggle } from './ThemePicker'
 
+/** Ambil maksimal 2 huruf inisial dari nama (kata pertama + kedua) */
+function getInitials(name) {
+  if (!name || typeof name !== 'string') return ''
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ''
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase()
+}
+
 function Layout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebar_collapsed') === 'true'
@@ -149,6 +160,12 @@ function Layout() {
 
   // Menu untuk bottom navigation mobile (hanya 5 item utama)
   const mobileMenuItems = menuItems.slice(0, 5)
+
+  // Judul halaman aktif berdasarkan route saat ini (untuk header)
+  const activeMenuItem = menuItems.find(item =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)
+  )
+  const pageTitle = activeMenuItem?.label || 'Dashboard'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -288,21 +305,21 @@ function Layout() {
             >
               {sidebarCollapsed ? <ChevronsRight className="w-6 h-6" /> : <ChevronsLeft className="w-6 h-6" />}
             </button>
-            <div className="flex items-center gap-2">
-              <div className="hidden lg:flex items-center gap-2">
-                <Gauge className="w-5 h-5 text-brand-600" />
-                <h2 className="text-lg font-semibold text-gray-800">FAS</h2>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="hidden lg:flex items-center gap-2 min-w-0">
+                <Gauge className="w-5 h-5 text-brand-600 shrink-0" />
+                <h2 className="text-lg font-semibold text-gray-800 truncate-mobile">{pageTitle}</h2>
               </div>
-              <div className="lg:hidden flex items-center gap-2">
+              <div className="lg:hidden flex items-center gap-2 min-w-0">
                 <img
                   src="/favicon.svg"
                   alt="Logo FAS"
                   className="w-7 h-7 shrink-0 rounded-md shadow-sm"
                   draggable="false"
                 />
-                <h2 className="text-base sm:text-lg font-bold text-gray-800 truncate-mobile max-w-[130px] sm:max-w-none">FAS</h2>
+                <h2 className="text-base sm:text-lg font-bold text-gray-800 truncate-mobile max-w-[150px] sm:max-w-none">{pageTitle}</h2>
               </div>
-              <span className="hidden sm:inline-flex items-center px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-semibold border border-brand-100">
+              <span className="hidden xl:inline-flex items-center px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-semibold border border-brand-100 shrink-0">
                 VCAR-2026
               </span>
             </div>
@@ -340,8 +357,12 @@ function Layout() {
                 {currentUser?.role || 'ADMIN'} • {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-full flex items-center justify-center text-white font-semibold shadow-md shadow-brand-500/30 border-2 border-brand-200">
-              {currentUser?.nama?.charAt(0)?.toUpperCase() || 'A'}{currentUser?.nama?.charAt(1)?.toUpperCase() || 'G'}
+            <div
+              className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-full flex items-center justify-center text-white font-semibold shadow-md shadow-brand-500/30 border-2 border-brand-200 select-none"
+              title={currentUser?.nama || 'Pengguna'}
+              aria-hidden="true"
+            >
+              {getInitials(currentUser?.nama) || <User className="w-4 h-4" />}
             </div>
           </div>
         </header>

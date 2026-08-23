@@ -274,11 +274,11 @@ function Pengaturan() {
   }
 
   const handleClearLogs = async () => {
-    if (confirm('Hapus semua log aktivitas?')) {
+    if (confirm('Bersihkan cache log aktivitas di perangkat ini? Catatan: jejak audit di server bersifat permanen demi keamanan.')) {
       try {
         await auditService.clear()
         await loadData()
-        toastService.success('Log aktivitas berhasil dihapus')
+        toastService.success('Cache log lokal berhasil dibersihkan')
       } catch (err) {
         toastService.error(err.message)
       }
@@ -340,7 +340,8 @@ function Pengaturan() {
             <span className="sm:hidden">Tambah</span>
           </button>
         </div>
-        <div className="table-responsive">
+        {/* Tabel - Desktop */}
+        <div className="desktop-table-view table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -395,6 +396,45 @@ function Pengaturan() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Card View - Mobile */}
+        <div className="mobile-card-view divide-y divide-gray-100">
+          {users.length === 0 ? (
+            <p className="p-8 text-center text-gray-500 text-sm">Belum ada pengguna terdaftar</p>
+          ) : (
+            users.map((user) => (
+              <div key={user.id} className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                    user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-brand-50 text-brand-700'
+                  }`}>
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-800 text-sm truncate-mobile">{user.nama}</p>
+                    <p className="text-xs text-gray-500 truncate-mobile">@{user.username} • {user.email || '-'}</p>
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => handleEdit(user)}
+                    className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors touch-target"
+                    title="Edit"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(user)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target"
+                    title="Hapus"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -495,8 +535,8 @@ function Pengaturan() {
       {/* Modal Tambah/Edit Pengguna */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto modal-mobile">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => setShowModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md max-h-[92dvh] overflow-y-auto modal-mobile">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 {editingId ? 'Edit Pengguna' : 'Tambah Pengguna'}
@@ -577,13 +617,13 @@ function Pengaturan() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors touch-target"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25"
+                  className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-md shadow-brand-500/25 touch-target"
                 >
                   {editingId ? 'Simpan Perubahan' : 'Tambah Pengguna'}
                 </button>

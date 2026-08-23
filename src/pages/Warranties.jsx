@@ -259,9 +259,9 @@ function Warranties() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Table - Desktop & Tablet */}
+      <div className="desktop-table-view bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -323,10 +323,86 @@ function Warranties() {
         </div>
       </div>
 
+      {/* Card View - Mobile */}
+      <div className="mobile-card-view space-y-3">
+        {isLoading ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500 text-sm">Memuat data...</div>
+        ) : filteredWarranties.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Belum ada data garansi</p>
+          </div>
+        ) : (
+          filteredWarranties.map((w) => (
+            <div key={w.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5 text-brand-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm truncate-mobile">{w.judul}</p>
+                    <p className="text-xs text-brand-600 font-medium">{w.kode} • {WARRANTY_JENIS_LABELS[w.jenis] || w.jenis}</p>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium shrink-0 ${WARRANTY_STATUS_COLORS[w.status] || 'bg-gray-100 text-gray-600'}`}>
+                  {WARRANTY_STATUS_LABELS[w.status] || w.status}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 mt-3 text-sm">
+                <p className="text-gray-600 truncate-mobile"><span className="text-gray-400">Pelanggan:</span> {w.customer?.nama || '-'}</p>
+                <p className="text-gray-600 truncate-mobile">
+                  <span className="text-gray-400">Kendaraan:</span>{' '}
+                  {w.vehicle ? `${w.vehicle.merk || ''} ${w.vehicle.tipe || ''} (${w.vehicle.platNomor || ''})` : '-'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">Mulai</p>
+                  <p className="font-medium text-gray-800">{formatDate(w.tanggalMulai)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[10px] text-gray-500">Berakhir</p>
+                  <p className="font-medium text-gray-800">{formatDate(w.tanggalBerakhir)}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+                <button onClick={() => handleEdit(w)} className="px-3 py-2 inline-flex items-center gap-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors touch-target text-sm font-medium">
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </button>
+                {w.status === WARRANTY_STATUS.AKTIF && (
+                  <button onClick={() => handleStatusChange(w, WARRANTY_STATUS.CLAIMED)} className="px-3 py-2 inline-flex items-center gap-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors touch-target text-sm font-medium">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Klaim
+                  </button>
+                )}
+                <button
+                  onClick={() => handleStatusChange(w, WARRANTY_STATUS.CANCELLED)}
+                  className="px-3 py-2 inline-flex items-center gap-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                  disabled={w.status === WARRANTY_STATUS.CANCELLED || w.status === WARRANTY_STATUS.EXPIRED}
+                >
+                  <XCircle className="w-4 h-4" />
+                  Batal
+                </button>
+                <button onClick={() => handleDelete(w)} className="px-3 py-2 inline-flex items-center gap-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target text-sm font-medium">
+                  <Trash2 className="w-4 h-4" />
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Modal Tambah/Edit */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => { setShowModal(false); setEditingWarranty(null) }} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[92dvh] overflow-y-auto modal-mobile">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">{editingWarranty ? 'Edit Garansi' : 'Tambah Garansi'}</h2>
             </div>
@@ -412,8 +488,8 @@ function Warranties() {
                 </div>
               )}
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowModal(false); setEditingWarranty(null) }} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">Batal</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">{editingWarranty ? 'Update' : 'Simpan'}</button>
+                <button type="button" onClick={() => { setShowModal(false); setEditingWarranty(null) }} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors touch-target">Batal</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors touch-target">{editingWarranty ? 'Update' : 'Simpan'}</button>
               </div>
             </form>
           </div>

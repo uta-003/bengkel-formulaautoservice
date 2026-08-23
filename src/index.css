@@ -1,5 +1,60 @@
 @import "tailwindcss";
 
+/* ===== Global Reset & Precision ===== */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Smooth custom scrollbar (desktop) */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+/* Prevent iOS input zoom on mobile (font-size >= 16px) */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Hilangkan tap highlight biru default browser */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Active state feedback untuk elemen interaktif */
+  button:active,
+  a:active {
+    opacity: 0.75;
+  }
+}
+
 /* ===== FAS Theme System ===== */
 /* Tema default: Merah FAS. Tema lain di-override via atribut data-theme pada <html> */
 @theme {
@@ -499,13 +554,27 @@ html[data-theme="slate"] {
 .table-responsive {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
-/* Modal responsive for mobile */
+/* Sticky table header saat scroll vertikal */
+.table-sticky-header thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #f9fafb;
+}
+
+/* Angka rapi & presisi (digit sejajar) */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal responsive for mobile - bottom sheet style */
 @media (max-width: 640px) {
   .modal-mobile {
     margin: 0;
-    max-height: 92vh;
+    max-height: 92dvh;
     border-radius: 1rem 1rem 0 0;
     position: fixed;
     bottom: 0;
@@ -513,7 +582,29 @@ html[data-theme="slate"] {
     right: 0;
     width: 100%;
     max-width: 100%;
+    animation: slide-up-sheet 0.25s cubic-bezier(0.32, 0.72, 0, 1);
   }
+}
+
+@keyframes slide-up-sheet {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Backdrop modal fade-in halus */
+.modal-backdrop {
+  animation: fade-in-backdrop 0.2s ease-out;
+}
+
+@keyframes fade-in-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ===== Print styles untuk Invoice & Work Order ===== */

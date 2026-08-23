@@ -184,8 +184,8 @@ function Customers() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Table - Desktop & Tablet */}
+      <div className="desktop-table-view bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -244,10 +244,75 @@ function Customers() {
         </div>
       </div>
 
+      {/* Card View - Mobile */}
+      <div className="mobile-card-view space-y-3">
+        {isLoading ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500 text-sm">Memuat data...</div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Belum ada data pelanggan</p>
+          </div>
+        ) : (
+          filteredCustomers.map((c) => (
+            <div key={c.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-brand-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm truncate-mobile">{c.nama}</p>
+                    <p className="text-xs text-brand-600 font-medium">{c.kode}</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium shrink-0">
+                  <Car className="w-3 h-3" />
+                  {vehicles.filter(v => Number(v.customerId) === Number(c.id)).length}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 mt-3 text-sm">
+                {c.telepon && (
+                  <p className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                    {c.telepon}
+                  </p>
+                )}
+                {c.email && (
+                  <p className="text-xs text-gray-500 truncate-mobile">{c.email}</p>
+                )}
+                {c.alamat && (
+                  <p className="text-xs text-gray-500">{c.alamat}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => handleEdit(c)}
+                  className="px-3 py-2 inline-flex items-center gap-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(c)}
+                  className="px-3 py-2 inline-flex items-center gap-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target text-sm font-medium"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => { setShowModal(false); setEditingCustomer(null) }} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[92dvh] overflow-y-auto modal-mobile">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 {editingCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
@@ -295,13 +360,13 @@ function Customers() {
                 <button
                   type="button"
                   onClick={() => { setShowModal(false); setEditingCustomer(null) }}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors touch-target"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors touch-target"
                 >
                   {editingCustomer ? 'Update' : 'Simpan'}
                 </button>

@@ -948,7 +948,8 @@ function BarcodeScanner() {
           <h2 className="text-lg font-semibold text-gray-800">Daftar Barcode Sparepart</h2>
           <span className="text-xs text-gray-500">{allSpareparts.length} items</span>
         </div>
-        <div className="table-responsive">
+        {/* Tabel - Desktop */}
+        <div className="desktop-table-view table-responsive">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -992,12 +993,44 @@ function BarcodeScanner() {
             </tbody>
           </table>
         </div>
+
+        {/* Card View - Mobile */}
+        <div className="mobile-card-view divide-y divide-gray-100">
+          {allSpareparts.length === 0 ? (
+            <p className="p-8 text-center text-gray-500 text-sm">Belum ada sparepart terdaftar</p>
+          ) : (
+            allSpareparts.map((sp) => (
+              <div key={sp.id} className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                    sp.stok <= sp.stokMinimum ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                  }`}>
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-800 text-sm truncate-mobile">{sp.nama}</p>
+                    <p className="text-xs text-gray-500 truncate-mobile">{sp.kode} • Stok: {sp.stok}</p>
+                    <p className="text-[10px] text-gray-400 font-mono truncate-mobile">{sp.barcode}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handlePrintLabel(sp)}
+                  className="inline-flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors touch-target shrink-0"
+                  title="Cetak label barcode"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Label
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Modal Cetak Label */}
       {showPrintModal && selectedForPrint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowPrintModal(false)} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onClick={() => setShowPrintModal(false)} />
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">Cetak Label Barcode</h2>

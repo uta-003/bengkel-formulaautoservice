@@ -74,29 +74,44 @@ npm run lint
 
 ## ⚙️ Konfigurasi Environment
 
-Aplikasi ini menggunakan **SATU database Supabase** (project: `gudangbengkel`) untuk semua perangkat.
+Aplikasi ini menggunakan **SATU database Supabase** untuk semua perangkat.
 Baik dibuka dari HP A/B/C maupun PC A/B/C, semua membaca & menulis ke database yang sama,
 sehingga data selalu konsisten tanpa selisih (didukung realtime sync).
 
-Konfigurasi sudah tertanam sebagai fallback di `src/services/supabaseClient.js`,
-jadi aplikasi tetap terhubung ke database yang benar meski tanpa file `.env`.
+> 🔒 **KEAMANAN**: Kredensial **TIDAK** disimpan di source code atau repository.
+> Aplikasi akan menampilkan error jelas jika environment variables belum diatur.
 
-Jika ingin override, buat file `.env.local`:
+### Development
 
-```env
-# API (opsional, untuk backend tambahan)
-VITE_API_URL=http://localhost:3000/api
+Salin `.env.example` menjadi `.env.local`, lalu isi nilai dari Supabase Dashboard → Project Settings → API:
 
-# Supabase (wajib untuk database)
-VITE_SUPABASE_URL=https://dyruuzzrdknwjcjakmif.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_JuFWMmVwsX0ZJQtqt1bVaw_LB9LM-Ef
+```bash
+cp .env.example .env.local
 ```
 
-| Variable | Deskripsi | Default |
-|----------|-----------|---------|
-| `VITE_API_URL` | URL backend API (opsional) | `http://localhost:3000/api` |
-| `VITE_SUPABASE_URL` | URL project Supabase | `https://dyruuzzrdknwjcjakmif.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Anon key Supabase | `sb_publishable_JuFWMmVwsX0ZJQtqt1bVaw_LB9LM-Ef` |
+```env
+# Supabase (wajib)
+VITE_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key-here
+
+# API backend tambahan (opsional)
+VITE_API_URL=
+```
+
+File `.env*` otomatis diabaikan git (lihat `.gitignore`) sehingga tidak akan ter-commit.
+
+### Production (Vercel)
+
+Set environment variables di **Vercel Dashboard → Project → Settings → Environment Variables**:
+
+| Variable | Deskripsi | Wajib |
+|----------|-----------|-------|
+| `VITE_SUPABASE_URL` | URL project Supabase | ✅ |
+| `VITE_SUPABASE_ANON_KEY` | Publishable/anon key Supabase | ✅ |
+| `VITE_API_URL` | URL backend API (opsional) | ❌ |
+
+> ⚠️ Tanpa kedua variabel wajib, build production akan gagal saat runtime
+> dengan pesan error konfigurasi yang jelas.
 
 ### 🗄️ Setup Database
 
@@ -162,11 +177,19 @@ src/
 
 ## 🔐 Keamanan
 
-- Password di-hash sebelum disimpan di localStorage (untuk auth lokal)
-- Role-Based Access Control (RBAC) untuk halaman dan aksi
-- Audit trail semua aktivitas penting
-- Proteksi route berbasis permission (bukan hanya UI)
-- Data inventori (sparepart, supplier, transaksi) tersimpan di Supabase
+Detail lengkap tersedia di [SECURITY.md](SECURITY.md). Ringkasan:
+
+- **Password hashing PBKDF2-SHA256** (100.000 iterasi + salt acak per user) via Web Crypto API;
+  hash legacy lama dimigrasikan otomatis saat login
+- **Rate limiting login** — akun dikunci 5 menit setelah 5x gagal; percobaan gagal tercatat di audit log
+- **Sesi aman** — masa berlaku 12 jam + token acak; sesi kedaluwarsa dibersihkan otomatis
+- **Role-Based Access Control (RBAC)** untuk halaman dan aksi + proteksi route berbasis permission
+- **Audit trail immutable** di server (trigger database mencegah UPDATE/DELETE)
+- **Proteksi admin terakhir** tidak dapat dihapus/diturunkan rolenya (client + trigger database)
+- **Validasi & sanitasi input** (`src/utils/validation.js`) anti-XSS dan anti-data-invalid
+- **Security headers** via `vercel.json`: CSP, X-Frame-Options DENY, nosniff, HSTS, Permissions-Policy
+- **Database hardening** (`supabase/security_hardening.sql`): CHECK constraints stok/harga/jumlah
+- **Repositori bersih kredensial**: `.env*` di-gitignore, Dependabot aktif, panduan rotasi kunci
 
 ## 📝 Catatan Pengembangan
 
